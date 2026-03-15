@@ -52,32 +52,43 @@ struct ContentView: View {
     }
 
     private var activeView: some View {
-        HStack(spacing: 8) {
-            Button {
-                timerManager.togglePause()
-            } label: {
-                Text(timerManager.state == .paused ? "Resume" : "Pause")
-                    .frame(maxWidth: .infinity)
-            }
-            .controlSize(.large)
+        VStack(spacing: 12) {
+            Text(timerManager.displayTime)
+                .font(.system(size: 36, weight: .medium, design: .monospaced))
 
-            Button {
-                timerManager.reset()
-            } label: {
-                Text("Reset")
-                    .frame(maxWidth: .infinity)
+            HStack(spacing: 8) {
+                Button {
+                    timerManager.togglePause()
+                } label: {
+                    Text(timerManager.state == .paused ? "Resume" : "Pause")
+                        .frame(maxWidth: .infinity)
+                }
+                .controlSize(.large)
+
+                Button {
+                    timerManager.reset()
+                } label: {
+                    Text("Reset")
+                        .frame(maxWidth: .infinity)
+                }
+                .controlSize(.large)
             }
-            .controlSize(.large)
         }
     }
 
     private var completedView: some View {
-        Button {
-            timerManager.stop()
-        } label: {
-            Text("Stop")
-                .frame(maxWidth: .infinity)
+        VStack(spacing: 12) {
+            Text(timerManager.displayTime)
+                .font(.system(size: 36, weight: .medium, design: .monospaced))
+                .foregroundStyle(.green)
+
+            Button {
+                timerManager.stop()
+            } label: {
+                Text("Stop")
+                    .frame(maxWidth: .infinity)
+            }
+            .controlSize(.large)
         }
-        .controlSize(.large)
     }
 }

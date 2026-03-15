@@ -15,6 +15,21 @@ class TimerManager: ObservableObject {
 
     private var timer: Timer?
 
+    var displayTime: String {
+        switch state {
+        case .idle:
+            return ""
+        case .running, .paused:
+            let mins = remainingSeconds / 60
+            let secs = remainingSeconds % 60
+            return String(format: "%02d:%02d", mins, secs)
+        case .completed:
+            let mins = elapsedSeconds / 60
+            let secs = elapsedSeconds % 60
+            return String(format: "+%02d:%02d", mins, secs)
+        }
+    }
+
     func start(seconds: Int) {
         remainingSeconds = seconds
         elapsedSeconds = 0
@@ -49,6 +64,7 @@ class TimerManager: ObservableObject {
         state = .idle
         remainingSeconds = 0
         elapsedSeconds = 0
+        FocusManager.disableDoNotDisturb()
     }
 
     private func startTimer() {
@@ -66,7 +82,6 @@ class TimerManager: ObservableObject {
             } else {
                 state = .completed
                 elapsedSeconds = 0
-                FocusManager.disableDoNotDisturb()
             }
         case .completed:
             elapsedSeconds += 1

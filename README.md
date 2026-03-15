@@ -4,21 +4,22 @@ A simple Pomodoro timer that lives in your Mac menu bar.
 
 ## How It Works
 
-Click the tomato (🍅) in your menu bar to open a small panel with three timer options: 25, 45, or 60 minutes.
+Click the tomato icon in your menu bar to open a small panel with three timer options: 15 seconds, 45 minutes, or 60 minutes.
 
 When you start a timer:
 
-- The menu bar icon turns red (🔴) and shows a live countdown.
-- The panel switches to a pause/resume button.
+- The menu bar icon turns red.
+- The panel shows a live countdown with pause and reset buttons.
 - Do Not Disturb turns on so you can concentrate.
 
 When the countdown reaches zero:
 
-- The icon turns green (🟢) and starts counting up so you can see how long you've been in the zone.
-- The pause button becomes a stop button.
-- Do Not Disturb turns off.
+- The icon turns green.
+- The panel starts counting up so you can see how long you've been in the zone.
+- The countdown buttons are replaced with a stop button.
+- Do Not Disturb stays on until you press stop.
 
-Click stop to reset everything back to the tomato.
+Click stop to turn off Do Not Disturb and reset everything back to the idle tomato icon.
 
 ## Requirements
 
