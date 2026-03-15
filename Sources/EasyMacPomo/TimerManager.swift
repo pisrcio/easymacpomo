@@ -97,6 +97,12 @@ class TimerManager: ObservableObject {
     func toggleTodo(_ id: UUID) {
         if let index = todos.firstIndex(where: { $0.id == id }) {
             todos[index].isDone.toggle()
+            if todos[index].isDone {
+                let todoId = id
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                    self?.removeTodo(todoId)
+                }
+            }
         }
     }
 
