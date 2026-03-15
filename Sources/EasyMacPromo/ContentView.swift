@@ -9,7 +9,7 @@ struct ContentView: View {
             case .idle:
                 idleView
             case .running, .paused:
-                countdownView
+                activeView
             case .completed:
                 completedView
             }
@@ -24,29 +24,35 @@ struct ContentView: View {
                 .font(.headline)
 
             HStack(spacing: 8) {
-                ForEach([25, 45, 60], id: \.self) { mins in
-                    Button {
-                        timerManager.start(minutes: mins)
-                    } label: {
-                        Text("\(mins)")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .controlSize(.large)
+                Button {
+                    timerManager.start(seconds: 15)
+                } label: {
+                    Text("15s")
+                        .frame(maxWidth: .infinity)
                 }
-            }
+                .controlSize(.large)
 
-            Text("minutes")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                Button {
+                    timerManager.start(seconds: 45 * 60)
+                } label: {
+                    Text("45m")
+                        .frame(maxWidth: .infinity)
+                }
+                .controlSize(.large)
+
+                Button {
+                    timerManager.start(seconds: 60 * 60)
+                } label: {
+                    Text("60m")
+                        .frame(maxWidth: .infinity)
+                }
+                .controlSize(.large)
+            }
         }
     }
 
-    private var countdownView: some View {
-        VStack(spacing: 12) {
-            Text(timerManager.displayTime)
-                .font(.system(size: 36, weight: .medium, design: .monospaced))
-                .foregroundStyle(.red)
-
+    private var activeView: some View {
+        HStack(spacing: 8) {
             Button {
                 timerManager.togglePause()
             } label: {
@@ -54,22 +60,24 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity)
             }
             .controlSize(.large)
-        }
-    }
-
-    private var completedView: some View {
-        VStack(spacing: 12) {
-            Text(timerManager.displayTime)
-                .font(.system(size: 36, weight: .medium, design: .monospaced))
-                .foregroundStyle(.green)
 
             Button {
-                timerManager.stop()
+                timerManager.reset()
             } label: {
-                Text("Stop")
+                Text("Reset")
                     .frame(maxWidth: .infinity)
             }
             .controlSize(.large)
         }
+    }
+
+    private var completedView: some View {
+        Button {
+            timerManager.stop()
+        } label: {
+            Text("Stop")
+                .frame(maxWidth: .infinity)
+        }
+        .controlSize(.large)
     }
 }

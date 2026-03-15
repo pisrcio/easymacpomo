@@ -15,36 +15,19 @@ class TimerManager: ObservableObject {
 
     private var timer: Timer?
 
-    var displayTime: String {
-        switch state {
-        case .idle:
-            return ""
-        case .running, .paused:
-            let mins = remainingSeconds / 60
-            let secs = remainingSeconds % 60
-            return String(format: "%02d:%02d", mins, secs)
-        case .completed:
-            let mins = elapsedSeconds / 60
-            let secs = elapsedSeconds % 60
-            return String(format: "+%02d:%02d", mins, secs)
-        }
-    }
-
     var menuBarText: String {
         switch state {
         case .idle:
             return "🍅"
-        case .running:
-            return "🔴 \(displayTime)"
-        case .paused:
-            return "⏸ \(displayTime)"
+        case .running, .paused:
+            return "❤️"
         case .completed:
-            return "🟢 \(displayTime)"
+            return "💚"
         }
     }
 
-    func start(minutes: Int) {
-        remainingSeconds = minutes * 60
+    func start(seconds: Int) {
+        remainingSeconds = seconds
         elapsedSeconds = 0
         state = .running
         FocusManager.enableDoNotDisturb()
@@ -60,6 +43,15 @@ class TimerManager: ObservableObject {
             timer?.invalidate()
             timer = nil
         }
+    }
+
+    func reset() {
+        timer?.invalidate()
+        timer = nil
+        state = .idle
+        remainingSeconds = 0
+        elapsedSeconds = 0
+        FocusManager.disableDoNotDisturb()
     }
 
     func stop() {
