@@ -1,5 +1,7 @@
 import Foundation
 import Combine
+import AppKit
+import Carbon.HIToolbox
 
 enum TimerState {
     case idle
@@ -8,16 +10,69 @@ enum TimerState {
     case completed
 }
 
+struct TodoItem: Identifiable {
+    let id = UUID()
+    var text: String
+    var isDone: Bool = false
+}
+
 class TimerManager: ObservableObject {
     @Published var state: TimerState = .idle
     @Published var remainingSeconds: Int = 0
     @Published var elapsedSeconds: Int = 0
     @Published var restSeconds: Int = 0
     @Published var todayMinutes: Int = 0
+    @Published var todos: [TodoItem] = []
+    @Published var isAddingTodo: Bool = false
 
     private var timer: Timer?
     private var restTimer: Timer?
+    private var hotkeyRef: EventHotKeyRef?
+    private var todoInputPanel: TodoInputPanel?
     private(set) var originalDuration: Int = 0
+
+    private static weak var shared: TimerManager?
+
+    init() {
+        TimerManager.shared = self
+        registerHotkey()
+        todoInputPanel = TodoInputPanel(timerManager: self)
+    }
+
+    deinit {
+        if let ref = hotkeyRef {
+            UnregisterEventHotKey(ref)
+        }
+    }
+
+    func showTodoInput() {
+        todoInputPanel?.show()
+    }
+
+    private func registerHotkey() {
+        // Carbon hotkey: works globally without Accessibility permissions
+        let hotKeyID = EventHotKeyID(signature: OSType(0x504F4D4F), id: 1) // "POMO"
+        // Modifiers: cmdKey=0x100, optionKey=0x800, controlKey=0x1000
+        let modifiers: UInt32 = UInt32(cmdKey | optionKey | controlKey)
+        let keyCode: UInt32 = 0x2A // kVK_ANSI_Backslash
+
+        var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+        InstallEventHandler(GetApplicationEventTarget(), { _, event, _ -> OSStatus in
+            guard let event = event else { return OSStatus(eventNotHandledErr) }
+            var hotKeyID = EventHotKeyID()
+            GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil, MemoryLayout<EventHotKeyID>.size, nil, &hotKeyID)
+            if hotKeyID.id == 1 {
+                DispatchQueue.main.async {
+                    TimerManager.shared?.showTodoInput()
+                }
+            }
+            return noErr
+        }, 1, &eventType, nil, nil)
+
+        var hotKeyRef: EventHotKeyRef?
+        RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetApplicationEventTarget(), 0, &hotKeyRef)
+        self.hotkeyRef = hotKeyRef
+    }
 
     private var sessionElapsedMinutes: Int {
         switch state {
@@ -34,6 +89,27 @@ class TimerManager: ObservableObject {
 
     func setTodayTotal(_ total: Int) {
         todayMinutes = total - sessionElapsedMinutes
+    }
+
+    func addTodo(_ text: String) {
+        guard !text.isEmpty else { return }
+        todos.append(TodoItem(text: text))
+    }
+
+    func toggleTodo(_ id: UUID) {
+        if let index = todos.firstIndex(where: { $0.id == id }) {
+            todos[index].isDone.toggle()
+            if todos[index].isDone {
+                let todoId = id
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                    self?.removeTodo(todoId)
+                }
+            }
+        }
+    }
+
+    func removeTodo(_ id: UUID) {
+        todos.removeAll { $0.id == id }
     }
 
     var todayDisplay: String {

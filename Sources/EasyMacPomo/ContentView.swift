@@ -4,6 +4,7 @@ struct ContentView: View {
     @ObservedObject var timerManager: TimerManager
     @State private var todayEditText: String = ""
     @FocusState private var isTodayFocused: Bool
+    @State private var newTodoText: String = ""
 
     var body: some View {
         VStack(spacing: 16) {
@@ -17,6 +18,7 @@ struct ContentView: View {
             }
 
             todayField
+            todoList
         }
         .padding(20)
         .frame(width: 220)
@@ -65,9 +67,50 @@ struct ContentView: View {
         }
     }
 
+    private var todoList: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(timerManager.todos) { todo in
+                HStack(spacing: 6) {
+                    Text(todo.text)
+                        .font(.system(size: 11))
+                        .foregroundStyle(todo.isDone ? .secondary : .primary)
+                        .strikethrough(todo.isDone)
+                        .lineLimit(1)
+                    Spacer()
+                    Button {
+                        timerManager.toggleTodo(todo.id)
+                    } label: {
+                        Image(systemName: todo.isDone ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 12))
+                            .foregroundStyle(todo.isDone ? .green : .secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if timerManager.isAddingTodo {
+                TextField("New todo...", text: $newTodoText)
+                    .font(.system(size: 11))
+                    .textFieldStyle(.plain)
+                    .onSubmit {
+                        timerManager.addTodo(newTodoText)
+                        newTodoText = ""
+                        timerManager.isAddingTodo = false
+                    }
+                    .onExitCommand {
+                        newTodoText = ""
+                        timerManager.isAddingTodo = false
+                    }
+            }
+        }
+    }
+
     private var idleView: some View {
         VStack(spacing: 12) {
             if timerManager.restSeconds > 0 {
+                Text("Rest")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
                 Text(timerManager.restDisplay)
                     .font(.system(size: 36, weight: .medium, design: .monospaced))
                     .foregroundStyle(.secondary)
