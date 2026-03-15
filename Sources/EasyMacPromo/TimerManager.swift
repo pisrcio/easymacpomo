@@ -47,7 +47,7 @@ class TimerManager: ObservableObject {
         remainingSeconds = minutes * 60
         elapsedSeconds = 0
         state = .running
-        FocusManager.enableReducedInterruptions()
+        FocusManager.enableDoNotDisturb()
         startTimer()
     }
 
@@ -85,7 +85,7 @@ class TimerManager: ObservableObject {
             } else {
                 state = .completed
                 elapsedSeconds = 0
-                FocusManager.disableReducedInterruptions()
+                FocusManager.disableDoNotDisturb()
             }
         case .completed:
             elapsedSeconds += 1

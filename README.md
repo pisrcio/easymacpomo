@@ -10,13 +10,13 @@ When you start a timer:
 
 - The menu bar icon turns red (🔴) and shows a live countdown.
 - The panel switches to a pause/resume button.
-- "Reduced Interruptions" Focus mode turns on so you can concentrate.
+- Do Not Disturb turns on so you can concentrate.
 
 When the countdown reaches zero:
 
 - The icon turns green (🟢) and starts counting up so you can see how long you've been in the zone.
 - The pause button becomes a stop button.
-- Focus mode turns off.
+- Do Not Disturb turns off.
 
 Click stop to reset everything back to the tomato.
 
@@ -53,12 +53,9 @@ Note: running the bare executable works for development, but the app bundle is n
 
 ## Focus Mode Setup
 
-The app toggles "Reduced Interruptions" automatically using macOS Shortcuts. You need to create two shortcuts once:
+The app toggles Do Not Disturb automatically using macOS Shortcuts. It expects two shortcuts:
 
-1. Open **Shortcuts.app**.
-2. Create a shortcut named **Start Reduced Interruptions**.
-   - Add a "Set Focus" action and configure it to turn on "Reduced Interruptions".
-3. Create a shortcut named **Stop Reduced Interruptions**.
-   - Add a "Set Focus" action and configure it to turn off "Reduced Interruptions".
+- **Turn On Do Not Disturb**
+- **Turn Off Do Not Disturb**
 
-If these shortcuts don't exist, the timer works normally — Focus mode just won't toggle.
+If these shortcuts don't exist, the timer works normally — Do Not Disturb just won't toggle.
