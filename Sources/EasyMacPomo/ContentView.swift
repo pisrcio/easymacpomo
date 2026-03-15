@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var timerManager: TimerManager
     @State private var todayEditText: String = ""
+    @State private var isTodayEditing: Bool = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -21,12 +22,20 @@ struct ContentView: View {
         .frame(width: 220)
     }
 
+    private func commitTodayEdit() {
+        if let mins = Int(todayEditText) {
+            timerManager.todayMinutes = mins
+        }
+        isTodayEditing = false
+        todayEditText = timerManager.todayDisplay
+    }
+
     private var todayField: some View {
         HStack(spacing: 4) {
             Text("Today:")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
-            TextField("0m", text: $todayEditText)
+            TextField("0", text: $todayEditText)
                 .font(.system(size: 11))
                 .textFieldStyle(.plain)
                 .foregroundStyle(.secondary)
@@ -35,16 +44,22 @@ struct ContentView: View {
                     todayEditText = timerManager.todayDisplay
                 }
                 .onChange(of: timerManager.todayTotalMinutes) { _ in
-                    todayEditText = timerManager.todayDisplay
-                }
-                .onSubmit {
-                    if let mins = Int(todayEditText) {
-                        timerManager.todayMinutes = mins
-                        todayEditText = timerManager.todayDisplay
-                    } else {
+                    if !isTodayEditing {
                         todayEditText = timerManager.todayDisplay
                     }
                 }
+                .onSubmit {
+                    commitTodayEdit()
+                }
+                .onExitCommand {
+                    commitTodayEdit()
+                }
+        }
+        .onTapGesture {
+            if !isTodayEditing {
+                isTodayEditing = true
+                todayEditText = "\(timerManager.todayTotalMinutes)"
+            }
         }
     }
 
