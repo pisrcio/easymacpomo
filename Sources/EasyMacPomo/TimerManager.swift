@@ -12,9 +12,35 @@ class TimerManager: ObservableObject {
     @Published var state: TimerState = .idle
     @Published var remainingSeconds: Int = 0
     @Published var elapsedSeconds: Int = 0
+    @Published var todayMinutes: Int = 0
 
     private var timer: Timer?
     private var originalDuration: Int = 0
+
+    private var sessionElapsedMinutes: Int {
+        switch state {
+        case .running, .paused:
+            return (originalDuration - remainingSeconds) / 60
+        default:
+            return 0
+        }
+    }
+
+    var todayTotalMinutes: Int {
+        return todayMinutes + sessionElapsedMinutes
+    }
+
+    func setTodayTotal(_ total: Int) {
+        todayMinutes = total - sessionElapsedMinutes
+    }
+
+    var todayDisplay: String {
+        let total = todayTotalMinutes
+        if total >= 60 {
+            return "\(total / 60)h \(total % 60)m"
+        }
+        return "\(total)m"
+    }
 
     var displayTime: String {
         switch state {
@@ -88,6 +114,7 @@ class TimerManager: ObservableObject {
             if remainingSeconds > 0 {
                 remainingSeconds -= 1
             } else {
+                todayMinutes += originalDuration / 60
                 state = .completed
                 elapsedSeconds = 0
             }

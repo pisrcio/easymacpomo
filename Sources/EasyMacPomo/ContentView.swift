@@ -2,6 +2,8 @@ import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var timerManager: TimerManager
+    @State private var todayEditText: String = ""
+    @FocusState private var isTodayFocused: Bool
 
     var body: some View {
         VStack(spacing: 16) {
@@ -13,9 +15,54 @@ struct ContentView: View {
             case .completed:
                 completedView
             }
+
+            todayField
         }
         .padding(20)
         .frame(width: 220)
+    }
+
+    private func commitTodayEdit() {
+        if let mins = Int(todayEditText) {
+            timerManager.setTodayTotal(mins)
+        }
+        isTodayFocused = false
+        todayEditText = timerManager.todayDisplay
+    }
+
+    private var todayField: some View {
+        HStack(spacing: 4) {
+            Text("Today:")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+            TextField("0", text: $todayEditText)
+                .font(.system(size: 11))
+                .textFieldStyle(.plain)
+                .foregroundStyle(.secondary)
+                .frame(width: 50)
+                .focused($isTodayFocused)
+                .onAppear {
+                    todayEditText = timerManager.todayDisplay
+                }
+                .onChange(of: isTodayFocused) { focused in
+                    if focused {
+                        todayEditText = "\(timerManager.todayTotalMinutes)"
+                    } else {
+                        commitTodayEdit()
+                    }
+                }
+                .onChange(of: timerManager.todayTotalMinutes) { _ in
+                    if !isTodayFocused {
+                        todayEditText = timerManager.todayDisplay
+                    }
+                }
+                .onSubmit {
+                    commitTodayEdit()
+                }
+                .onExitCommand {
+                    commitTodayEdit()
+                }
+        }
     }
 
     private var idleView: some View {

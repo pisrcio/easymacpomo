@@ -1,8 +1,15 @@
 import SwiftUI
 import AppKit
 
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationWillTerminate(_ notification: Notification) {
+        FocusManager.disableDoNotDisturb()
+    }
+}
+
 @main
 struct EasyMacPomoApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var timerManager = TimerManager()
 
     var body: some Scene {
