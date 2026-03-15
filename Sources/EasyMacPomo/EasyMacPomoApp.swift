@@ -28,14 +28,15 @@ struct MenuBarIcon: View {
     var body: some View {
         switch state {
         case .idle:
-            // Template image renders as white/black matching menu bar
-            Image(nsImage: makeCircleIcon(color: nil))
+            // Green for rest mode
+            Image(nsImage: makeCircleIcon(color: .green))
         case .running:
             Image(nsImage: makeCircleIcon(color: .red))
         case .paused:
             Image(nsImage: makeCircleIcon(color: .yellow))
         case .completed:
-            Image(nsImage: makeCircleIcon(color: .green))
+            // Template image renders as white/black matching menu bar (no distraction)
+            Image(nsImage: makeCircleIcon(color: nil))
         }
     }
 

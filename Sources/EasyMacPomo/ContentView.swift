@@ -135,7 +135,7 @@ struct ContentView: View {
         VStack(spacing: 12) {
             Text(timerManager.displayTime)
                 .font(.system(size: 36, weight: .medium, design: .monospaced))
-                .foregroundStyle(.green)
+                .foregroundStyle(.white)
 
             Button {
                 timerManager.stop()
