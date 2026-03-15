@@ -23,8 +23,10 @@ struct MenuBarIcon: View {
         case .idle:
             // Template image renders as white/black matching menu bar
             Image(nsImage: makeCircleIcon(color: nil))
-        case .running, .paused:
+        case .running:
             Image(nsImage: makeCircleIcon(color: .red))
+        case .paused:
+            Image(nsImage: makeCircleIcon(color: .yellow))
         case .completed:
             Image(nsImage: makeCircleIcon(color: .green))
         }
