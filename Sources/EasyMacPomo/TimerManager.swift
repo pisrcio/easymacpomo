@@ -27,22 +27,21 @@ class TimerManager: ObservableObject {
 
     private var timer: Timer?
     private var restTimer: Timer?
-    private var globalHotkeyMonitor: Any?
-    private var localHotkeyMonitor: Any?
+    private var hotkeyRef: EventHotKeyRef?
     private var todoInputPanel: TodoInputPanel?
     private(set) var originalDuration: Int = 0
 
+    private static weak var shared: TimerManager?
+
     init() {
+        TimerManager.shared = self
         registerHotkey()
         todoInputPanel = TodoInputPanel(timerManager: self)
     }
 
     deinit {
-        if let monitor = globalHotkeyMonitor {
-            NSEvent.removeMonitor(monitor)
-        }
-        if let monitor = localHotkeyMonitor {
-            NSEvent.removeMonitor(monitor)
+        if let ref = hotkeyRef {
+            UnregisterEventHotKey(ref)
         }
     }
 
@@ -51,25 +50,28 @@ class TimerManager: ObservableObject {
     }
 
     private func registerHotkey() {
-        let requiredFlags: NSEvent.ModifierFlags = [.control, .option, .command]
-        globalHotkeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard event.keyCode == 0x2A else { return }
-            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            guard flags.contains(requiredFlags) else { return }
-            DispatchQueue.main.async {
-                self?.showTodoInput()
-            }
-        }
-        localHotkeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            if event.keyCode == 0x2A && flags.contains(requiredFlags) {
+        // Carbon hotkey: works globally without Accessibility permissions
+        let hotKeyID = EventHotKeyID(signature: OSType(0x504F4D4F), id: 1) // "POMO"
+        // Modifiers: cmdKey=0x100, optionKey=0x800, controlKey=0x1000
+        let modifiers: UInt32 = UInt32(cmdKey | optionKey | controlKey)
+        let keyCode: UInt32 = 0x2A // kVK_ANSI_Backslash
+
+        var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+        InstallEventHandler(GetApplicationEventTarget(), { _, event, _ -> OSStatus in
+            guard let event = event else { return OSStatus(eventNotHandledErr) }
+            var hotKeyID = EventHotKeyID()
+            GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil, MemoryLayout<EventHotKeyID>.size, nil, &hotKeyID)
+            if hotKeyID.id == 1 {
                 DispatchQueue.main.async {
-                    self?.showTodoInput()
+                    TimerManager.shared?.showTodoInput()
                 }
-                return nil
             }
-            return event
-        }
+            return noErr
+        }, 1, &eventType, nil, nil)
+
+        var hotKeyRef: EventHotKeyRef?
+        RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetApplicationEventTarget(), 0, &hotKeyRef)
+        self.hotkeyRef = hotKeyRef
     }
 
     private var sessionElapsedMinutes: Int {

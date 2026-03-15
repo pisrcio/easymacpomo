@@ -10,8 +10,8 @@ class TodoInputPanel {
     }
 
     func show() {
-        if panel != nil {
-            panel?.makeKeyAndOrderFront(nil)
+        if let panel = panel {
+            panel.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
         }
@@ -27,20 +27,24 @@ class TodoInputPanel {
 
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 300, height: 40),
-            styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView],
+            styleMask: [.titled, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
+        panel.title = "EasyMacPomo"
         panel.contentView = hostingView
         panel.isFloatingPanel = true
         panel.level = .floating
-        panel.titlebarAppearsTransparent = true
-        panel.titleVisibility = .hidden
         panel.isMovableByWindowBackground = true
-        panel.becomesKeyOnlyIfNeeded = false
         panel.center()
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+
+        // Focus the text field after the panel is visible
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            panel.makeFirstResponder(nil)
+            panel.makeKeyAndOrderFront(nil)
+        }
 
         self.panel = panel
     }
@@ -64,7 +68,9 @@ struct TodoInputView: View {
             .padding(12)
             .focused($isFocused)
             .onAppear {
-                isFocused = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    isFocused = true
+                }
             }
             .onSubmit {
                 timerManager.addTodo(text)
