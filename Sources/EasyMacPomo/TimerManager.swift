@@ -17,7 +17,7 @@ class TimerManager: ObservableObject {
 
     private var timer: Timer?
     private var restTimer: Timer?
-    private var originalDuration: Int = 0
+    private(set) var originalDuration: Int = 0
 
     private var sessionElapsedMinutes: Int {
         switch state {
