@@ -21,15 +21,20 @@ class TimerManager: ObservableObject {
         case .idle:
             return ""
         case .running, .paused:
-            let mins = remainingSeconds / 60
-            let secs = remainingSeconds % 60
-            return String(format: "%02d:%02d", mins, secs)
+            return formatTime(remainingSeconds)
         case .completed:
-            let total = originalDuration + elapsedSeconds
-            let mins = total / 60
-            let secs = total % 60
-            return String(format: "%02d:%02d", mins, secs)
+            return formatTime(originalDuration + elapsedSeconds)
         }
+    }
+
+    private func formatTime(_ totalSeconds: Int) -> String {
+        let hours = totalSeconds / 3600
+        let mins = (totalSeconds % 3600) / 60
+        let secs = totalSeconds % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, mins, secs)
+        }
+        return String(format: "%02d:%02d", mins, secs)
     }
 
     func start(seconds: Int) {
