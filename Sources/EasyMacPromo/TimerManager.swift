@@ -15,17 +15,6 @@ class TimerManager: ObservableObject {
 
     private var timer: Timer?
 
-    var menuBarText: String {
-        switch state {
-        case .idle:
-            return "🍅"
-        case .running, .paused:
-            return "❤️"
-        case .completed:
-            return "💚"
-        }
-    }
-
     func start(seconds: Int) {
         remainingSeconds = seconds
         elapsedSeconds = 0
