@@ -3,7 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var timerManager: TimerManager
     @State private var todayEditText: String = ""
-    @State private var isTodayEditing: Bool = false
+    @FocusState private var isTodayFocused: Bool
 
     var body: some View {
         VStack(spacing: 16) {
@@ -26,7 +26,7 @@ struct ContentView: View {
         if let mins = Int(todayEditText) {
             timerManager.todayMinutes = mins
         }
-        isTodayEditing = false
+        isTodayFocused = false
         todayEditText = timerManager.todayDisplay
     }
 
@@ -40,11 +40,19 @@ struct ContentView: View {
                 .textFieldStyle(.plain)
                 .foregroundStyle(.secondary)
                 .frame(width: 50)
+                .focused($isTodayFocused)
                 .onAppear {
                     todayEditText = timerManager.todayDisplay
                 }
+                .onChange(of: isTodayFocused) { focused in
+                    if focused {
+                        todayEditText = "\(timerManager.todayTotalMinutes)"
+                    } else {
+                        commitTodayEdit()
+                    }
+                }
                 .onChange(of: timerManager.todayTotalMinutes) { _ in
-                    if !isTodayEditing {
+                    if !isTodayFocused {
                         todayEditText = timerManager.todayDisplay
                     }
                 }
@@ -54,12 +62,6 @@ struct ContentView: View {
                 .onExitCommand {
                     commitTodayEdit()
                 }
-        }
-        .onTapGesture {
-            if !isTodayEditing {
-                isTodayEditing = true
-                todayEditText = "\(timerManager.todayTotalMinutes)"
-            }
         }
     }
 
