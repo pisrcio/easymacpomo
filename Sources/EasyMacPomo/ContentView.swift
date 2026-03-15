@@ -108,6 +108,9 @@ struct ContentView: View {
     private var idleView: some View {
         VStack(spacing: 12) {
             if timerManager.restSeconds > 0 {
+                Text("Rest")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
                 Text(timerManager.restDisplay)
                     .font(.system(size: 36, weight: .medium, design: .monospaced))
                     .foregroundStyle(.secondary)
