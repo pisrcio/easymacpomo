@@ -118,6 +118,9 @@ struct ContentView: View {
 
     private var activeView: some View {
         VStack(spacing: 12) {
+            Text("\(timerManager.originalDuration / 60)-min session")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
             Text(timerManager.displayTime)
                 .font(.system(size: 36, weight: .medium, design: .monospaced))
 
