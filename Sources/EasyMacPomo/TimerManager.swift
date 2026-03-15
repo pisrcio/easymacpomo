@@ -8,12 +8,19 @@ enum TimerState {
     case completed
 }
 
+struct TodoItem: Identifiable {
+    let id = UUID()
+    var text: String
+    var isDone: Bool = false
+}
+
 class TimerManager: ObservableObject {
     @Published var state: TimerState = .idle
     @Published var remainingSeconds: Int = 0
     @Published var elapsedSeconds: Int = 0
     @Published var restSeconds: Int = 0
     @Published var todayMinutes: Int = 0
+    @Published var todos: [TodoItem] = []
 
     private var timer: Timer?
     private var restTimer: Timer?
@@ -34,6 +41,21 @@ class TimerManager: ObservableObject {
 
     func setTodayTotal(_ total: Int) {
         todayMinutes = total - sessionElapsedMinutes
+    }
+
+    func addTodo(_ text: String) {
+        guard !text.isEmpty else { return }
+        todos.append(TodoItem(text: text))
+    }
+
+    func toggleTodo(_ id: UUID) {
+        if let index = todos.firstIndex(where: { $0.id == id }) {
+            todos[index].isDone.toggle()
+        }
+    }
+
+    func removeTodo(_ id: UUID) {
+        todos.removeAll { $0.id == id }
     }
 
     var todayDisplay: String {
