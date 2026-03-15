@@ -2,6 +2,11 @@ import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var timerManager: TimerManager
+    @State private var todayString: String = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
+    }()
 
     var body: some View {
         VStack(spacing: 16) {
@@ -13,9 +18,23 @@ struct ContentView: View {
             case .completed:
                 completedView
             }
+
+            todayField
         }
         .padding(20)
         .frame(width: 220)
+    }
+
+    private var todayField: some View {
+        HStack(spacing: 4) {
+            Text("Today:")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+            TextField("yyyy-MM-dd", text: $todayString)
+                .font(.system(size: 11))
+                .textFieldStyle(.plain)
+                .foregroundStyle(.secondary)
+        }
     }
 
     private var idleView: some View {
