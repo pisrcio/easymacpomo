@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 @main
-struct EasyMacPromoApp: App {
+struct EasyMacPomoApp: App {
     @StateObject private var timerManager = TimerManager()
 
     var body: some Scene {

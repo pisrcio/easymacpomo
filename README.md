@@ -1,10 +1,10 @@
-# EasyMacPromo
+# EasyMacPomo
 
 A simple Pomodoro timer that lives in your Mac menu bar.
 
 ## How It Works
 
-Click the tomato icon in your menu bar to open a small panel with three timer options: 15 seconds, 45 minutes, or 60 minutes.
+Click the tomato icon in your menu bar to open a small panel with three timer options: 25, 45, or 60 minutes.
 
 When you start a timer:
 
@@ -15,11 +15,13 @@ When you start a timer:
 When the countdown reaches zero:
 
 - The icon turns green.
-- The panel starts counting up so you can see how long you've been in the zone.
-- The countdown buttons are replaced with a stop button.
+- The timer keeps counting up from where it left off, so you can see your total focused time.
+- The pause and reset buttons are replaced with a stop button.
 - Do Not Disturb stays on until you press stop.
 
 Click stop to turn off Do Not Disturb and reset everything back to the idle tomato icon.
+
+Times over 60 minutes are displayed in `H:MM:SS` format.
 
 ## Requirements
 
@@ -38,16 +40,16 @@ The included build script compiles the project and packages it into a macOS app 
 
 ```bash
 ./build.sh
-open EasyMacPromo.app
+open EasyMacPomo.app
 ```
 
-This creates `EasyMacPromo.app` in the project root. You can drag it into your Applications folder to keep it around.
+This creates `EasyMacPomo.app` in the project root. You can drag it into your Applications folder to keep it around.
 
 To build without creating the app bundle:
 
 ```bash
 swift build -c release
-.build/release/EasyMacPromo
+.build/release/EasyMacPomo
 ```
 
 Note: running the bare executable works for development, but the app bundle is needed for a proper menu bar experience (no dock icon, correct app identity).

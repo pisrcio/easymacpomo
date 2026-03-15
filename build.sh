@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-APP_NAME="EasyMacPromo"
+APP_NAME="EasyMacPomo"
 BUILD_DIR=".build/release"
 APP_BUNDLE="$APP_NAME.app"
 

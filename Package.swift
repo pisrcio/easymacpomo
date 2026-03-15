@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "EasyMacPromo",
+    name: "EasyMacPomo",
     platforms: [.macOS(.v13)],
     targets: [
         .executableTarget(
-            name: "EasyMacPromo",
-            path: "Sources/EasyMacPromo"
+            name: "EasyMacPomo",
+            path: "Sources/EasyMacPomo"
         )
     ]
 )

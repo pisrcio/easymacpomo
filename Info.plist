@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key>
-    <string>com.easymacpromo.app</string>
+    <string>com.easymacpomo.app</string>
     <key>CFBundleName</key>
-    <string>EasyMacPromo</string>
+    <string>EasyMacPomo</string>
     <key>CFBundleDisplayName</key>
-    <string>EasyMacPromo</string>
+    <string>EasyMacPomo</string>
     <key>CFBundleExecutable</key>
-    <string>EasyMacPromo</string>
+    <string>EasyMacPomo</string>
     <key>CFBundleVersion</key>
     <string>1.0</string>
     <key>CFBundleShortVersionString</key>
