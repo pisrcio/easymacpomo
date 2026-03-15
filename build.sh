@@ -6,6 +6,7 @@ BUILD_DIR=".build/release"
 APP_BUNDLE="$APP_NAME.app"
 
 echo "Building $APP_NAME..."
+swift package clean
 swift build -c release
 
 echo "Creating app bundle..."
