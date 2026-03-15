@@ -76,38 +76,42 @@ struct ContentView: View {
                     .font(.headline)
             }
 
-            HStack(spacing: 8) {
-                Button {
-                    timerManager.start(seconds: 10 * 60)
-                } label: {
-                    Text("10m")
-                        .frame(maxWidth: .infinity)
-                }
-                .controlSize(.large)
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    Button {
+                        timerManager.start(seconds: 10 * 60)
+                    } label: {
+                        Text("10m")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .controlSize(.large)
 
-                Button {
-                    timerManager.start(seconds: 25 * 60)
-                } label: {
-                    Text("25m")
-                        .frame(maxWidth: .infinity)
+                    Button {
+                        timerManager.start(seconds: 25 * 60)
+                    } label: {
+                        Text("25m")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .controlSize(.large)
                 }
-                .controlSize(.large)
 
-                Button {
-                    timerManager.start(seconds: 45 * 60)
-                } label: {
-                    Text("45m")
-                        .frame(maxWidth: .infinity)
-                }
-                .controlSize(.large)
+                HStack(spacing: 8) {
+                    Button {
+                        timerManager.start(seconds: 45 * 60)
+                    } label: {
+                        Text("45m")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .controlSize(.large)
 
-                Button {
-                    timerManager.start(seconds: 60 * 60)
-                } label: {
-                    Text("60m")
-                        .frame(maxWidth: .infinity)
+                    Button {
+                        timerManager.start(seconds: 60 * 60)
+                    } label: {
+                        Text("60m")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .controlSize(.large)
                 }
-                .controlSize(.large)
             }
         }
     }
