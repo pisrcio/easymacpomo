@@ -72,6 +72,14 @@ struct ContentView: View {
 
             HStack(spacing: 8) {
                 Button {
+                    timerManager.start(seconds: 10 * 60)
+                } label: {
+                    Text("10m")
+                        .frame(maxWidth: .infinity)
+                }
+                .controlSize(.large)
+
+                Button {
                     timerManager.start(seconds: 25 * 60)
                 } label: {
                     Text("25m")
