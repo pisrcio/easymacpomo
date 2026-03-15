@@ -12,9 +12,11 @@ class TimerManager: ObservableObject {
     @Published var state: TimerState = .idle
     @Published var remainingSeconds: Int = 0
     @Published var elapsedSeconds: Int = 0
+    @Published var restSeconds: Int = 0
     @Published var todayMinutes: Int = 0
 
     private var timer: Timer?
+    private var restTimer: Timer?
     private var originalDuration: Int = 0
 
     private var sessionElapsedMinutes: Int {
@@ -42,6 +44,10 @@ class TimerManager: ObservableObject {
         return "\(total)m"
     }
 
+    var restDisplay: String {
+        return formatTime(restSeconds)
+    }
+
     var displayTime: String {
         switch state {
         case .idle:
@@ -64,6 +70,9 @@ class TimerManager: ObservableObject {
     }
 
     func start(seconds: Int) {
+        restTimer?.invalidate()
+        restTimer = nil
+        restSeconds = 0
         originalDuration = seconds
         remainingSeconds = seconds
         elapsedSeconds = 0
@@ -90,6 +99,7 @@ class TimerManager: ObservableObject {
         remainingSeconds = 0
         elapsedSeconds = 0
         FocusManager.disableDoNotDisturb()
+        startRestTimer()
     }
 
     func stop() {
@@ -99,6 +109,15 @@ class TimerManager: ObservableObject {
         remainingSeconds = 0
         elapsedSeconds = 0
         FocusManager.disableDoNotDisturb()
+        startRestTimer()
+    }
+
+    private func startRestTimer() {
+        restSeconds = 0
+        restTimer?.invalidate()
+        restTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            self?.restSeconds += 1
+        }
     }
 
     private func startTimer() {
