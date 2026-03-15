@@ -26,27 +26,25 @@ struct ContentView: View {
             Text("Today:")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
-            TextField("0", text: $todayEditText)
+            TextField("0m", text: $todayEditText)
                 .font(.system(size: 11))
                 .textFieldStyle(.plain)
                 .foregroundStyle(.secondary)
-                .frame(width: 30)
+                .frame(width: 50)
                 .onAppear {
-                    todayEditText = "\(timerManager.todayMinutes)"
+                    todayEditText = timerManager.todayDisplay
                 }
-                .onChange(of: timerManager.todayMinutes) { newValue in
-                    todayEditText = "\(newValue)"
+                .onChange(of: timerManager.todayTotalMinutes) { _ in
+                    todayEditText = timerManager.todayDisplay
                 }
                 .onSubmit {
                     if let mins = Int(todayEditText) {
                         timerManager.todayMinutes = mins
+                        todayEditText = timerManager.todayDisplay
                     } else {
-                        todayEditText = "\(timerManager.todayMinutes)"
+                        todayEditText = timerManager.todayDisplay
                     }
                 }
-            Text("min")
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
         }
     }
 

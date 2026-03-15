@@ -17,6 +17,23 @@ class TimerManager: ObservableObject {
     private var timer: Timer?
     private var originalDuration: Int = 0
 
+    var todayTotalMinutes: Int {
+        switch state {
+        case .running, .paused:
+            return todayMinutes + (originalDuration - remainingSeconds) / 60
+        default:
+            return todayMinutes
+        }
+    }
+
+    var todayDisplay: String {
+        let total = todayTotalMinutes
+        if total >= 60 {
+            return "\(total / 60)h \(total % 60)m"
+        }
+        return "\(total)m"
+    }
+
     var displayTime: String {
         switch state {
         case .idle:
