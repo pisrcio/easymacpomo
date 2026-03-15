@@ -12,6 +12,7 @@ class TimerManager: ObservableObject {
     @Published var state: TimerState = .idle
     @Published var remainingSeconds: Int = 0
     @Published var elapsedSeconds: Int = 0
+    @Published var todayMinutes: Int = 0
 
     private var timer: Timer?
     private var originalDuration: Int = 0
@@ -88,6 +89,7 @@ class TimerManager: ObservableObject {
             if remainingSeconds > 0 {
                 remainingSeconds -= 1
             } else {
+                todayMinutes += originalDuration / 60
                 state = .completed
                 elapsedSeconds = 0
             }

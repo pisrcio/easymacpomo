@@ -2,11 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var timerManager: TimerManager
-    @State private var todayString: String = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: Date())
-    }()
+    @State private var todayEditText: String = ""
 
     var body: some View {
         VStack(spacing: 16) {
@@ -30,9 +26,26 @@ struct ContentView: View {
             Text("Today:")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
-            TextField("yyyy-MM-dd", text: $todayString)
+            TextField("0", text: $todayEditText)
                 .font(.system(size: 11))
                 .textFieldStyle(.plain)
+                .foregroundStyle(.secondary)
+                .frame(width: 30)
+                .onAppear {
+                    todayEditText = "\(timerManager.todayMinutes)"
+                }
+                .onChange(of: timerManager.todayMinutes) { newValue in
+                    todayEditText = "\(newValue)"
+                }
+                .onSubmit {
+                    if let mins = Int(todayEditText) {
+                        timerManager.todayMinutes = mins
+                    } else {
+                        todayEditText = "\(timerManager.todayMinutes)"
+                    }
+                }
+            Text("min")
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
         }
     }
