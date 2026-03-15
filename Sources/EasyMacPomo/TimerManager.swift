@@ -1,5 +1,7 @@
 import Foundation
 import Combine
+import AppKit
+import Carbon.HIToolbox
 
 enum TimerState {
     case idle
@@ -21,10 +23,54 @@ class TimerManager: ObservableObject {
     @Published var restSeconds: Int = 0
     @Published var todayMinutes: Int = 0
     @Published var todos: [TodoItem] = []
+    @Published var isAddingTodo: Bool = false
 
     private var timer: Timer?
     private var restTimer: Timer?
+    private var globalHotkeyMonitor: Any?
+    private var localHotkeyMonitor: Any?
+    private var todoInputPanel: TodoInputPanel?
     private(set) var originalDuration: Int = 0
+
+    init() {
+        registerHotkey()
+        todoInputPanel = TodoInputPanel(timerManager: self)
+    }
+
+    deinit {
+        if let monitor = globalHotkeyMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        if let monitor = localHotkeyMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+    }
+
+    func showTodoInput() {
+        todoInputPanel?.show()
+    }
+
+    private func registerHotkey() {
+        let requiredFlags: NSEvent.ModifierFlags = [.control, .option, .command]
+        globalHotkeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard event.keyCode == 0x2A else { return }
+            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            guard flags.contains(requiredFlags) else { return }
+            DispatchQueue.main.async {
+                self?.showTodoInput()
+            }
+        }
+        localHotkeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            if event.keyCode == 0x2A && flags.contains(requiredFlags) {
+                DispatchQueue.main.async {
+                    self?.showTodoInput()
+                }
+                return nil
+            }
+            return event
+        }
+    }
 
     private var sessionElapsedMinutes: Int {
         switch state {
