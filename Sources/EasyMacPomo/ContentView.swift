@@ -67,8 +67,14 @@ struct ContentView: View {
 
     private var idleView: some View {
         VStack(spacing: 12) {
-            Text("Pomodoro")
-                .font(.headline)
+            if timerManager.restSeconds > 0 {
+                Text(timerManager.restDisplay)
+                    .font(.system(size: 36, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Pomodoro")
+                    .font(.headline)
+            }
 
             HStack(spacing: 8) {
                 Button {
