@@ -14,6 +14,7 @@ class TimerManager: ObservableObject {
     @Published var elapsedSeconds: Int = 0
 
     private var timer: Timer?
+    private var originalDuration: Int = 0
 
     var displayTime: String {
         switch state {
@@ -24,13 +25,15 @@ class TimerManager: ObservableObject {
             let secs = remainingSeconds % 60
             return String(format: "%02d:%02d", mins, secs)
         case .completed:
-            let mins = elapsedSeconds / 60
-            let secs = elapsedSeconds % 60
-            return String(format: "+%02d:%02d", mins, secs)
+            let total = originalDuration + elapsedSeconds
+            let mins = total / 60
+            let secs = total % 60
+            return String(format: "%02d:%02d", mins, secs)
         }
     }
 
     func start(seconds: Int) {
+        originalDuration = seconds
         remainingSeconds = seconds
         elapsedSeconds = 0
         state = .running
