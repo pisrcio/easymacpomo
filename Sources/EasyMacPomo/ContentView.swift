@@ -24,7 +24,7 @@ struct ContentView: View {
 
     private func commitTodayEdit() {
         if let mins = Int(todayEditText) {
-            timerManager.todayMinutes = mins
+            timerManager.setTodayTotal(mins)
         }
         isTodayFocused = false
         todayEditText = timerManager.todayDisplay

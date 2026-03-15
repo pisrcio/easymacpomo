@@ -17,13 +17,21 @@ class TimerManager: ObservableObject {
     private var timer: Timer?
     private var originalDuration: Int = 0
 
-    var todayTotalMinutes: Int {
+    private var sessionElapsedMinutes: Int {
         switch state {
         case .running, .paused:
-            return todayMinutes + (originalDuration - remainingSeconds) / 60
+            return (originalDuration - remainingSeconds) / 60
         default:
-            return todayMinutes
+            return 0
         }
+    }
+
+    var todayTotalMinutes: Int {
+        return todayMinutes + sessionElapsedMinutes
+    }
+
+    func setTodayTotal(_ total: Int) {
+        todayMinutes = total - sessionElapsedMinutes
     }
 
     var todayDisplay: String {
