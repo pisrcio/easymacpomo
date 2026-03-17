@@ -76,6 +76,7 @@ struct ContentView: View {
                         .foregroundStyle(todo.isDone ? .secondary : .primary)
                         .strikethrough(todo.isDone)
                         .lineLimit(1)
+                        .help(todo.text)
                     Spacer()
                     Button {
                         timerManager.toggleTodo(todo.id)
