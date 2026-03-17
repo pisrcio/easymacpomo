@@ -114,8 +114,15 @@ class TimerManager: ObservableObject {
 
     private var sessionElapsedMinutes: Int {
         switch state {
-        case .running, .paused:
+        case .running:
             return (originalDuration - remainingSeconds) / 60
+        case .paused:
+            if pausedFromCompleted {
+                return elapsedSeconds / 60
+            }
+            return (originalDuration - remainingSeconds) / 60
+        case .completed:
+            return elapsedSeconds / 60
         default:
             return 0
         }
