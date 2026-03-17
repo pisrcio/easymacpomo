@@ -10,10 +10,21 @@ enum TimerState {
     case completed
 }
 
-struct TodoItem: Identifiable {
-    let id = UUID()
+struct TodoItem: Identifiable, Codable {
+    let id: UUID
     var text: String
     var isDone: Bool = false
+
+    init(text: String) {
+        self.id = UUID()
+        self.text = text
+        self.isDone = false
+    }
+}
+
+struct TodayData: Codable {
+    var minutes: Int
+    var date: String // "yyyy-MM-dd" using 2AM boundary
 }
 
 class TimerManager: ObservableObject {
@@ -33,9 +44,13 @@ class TimerManager: ObservableObject {
     private var pausedFromCompleted: Bool = false
 
     private static weak var shared: TimerManager?
+    private static let storageDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".easymacpomo")
+    private static let todosFile = storageDir.appendingPathComponent("todos.json")
+    private static let todayFile = storageDir.appendingPathComponent("today.json")
 
     init() {
         TimerManager.shared = self
+        loadPersistedState()
         registerHotkey()
         todoInputPanel = TodoInputPanel(timerManager: self)
         NSWorkspace.shared.notificationCenter.addObserver(
@@ -112,16 +127,19 @@ class TimerManager: ObservableObject {
 
     func setTodayTotal(_ total: Int) {
         todayMinutes = total - sessionElapsedMinutes
+        saveTodayMinutes()
     }
 
     func addTodo(_ text: String) {
         guard !text.isEmpty else { return }
         todos.append(TodoItem(text: text))
+        saveTodos()
     }
 
     func toggleTodo(_ id: UUID) {
         if let index = todos.firstIndex(where: { $0.id == id }) {
             todos[index].isDone.toggle()
+            saveTodos()
             if todos[index].isDone {
                 let todoId = id
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
@@ -133,6 +151,7 @@ class TimerManager: ObservableObject {
 
     func removeTodo(_ id: UUID) {
         todos.removeAll { $0.id == id }
+        saveTodos()
     }
 
     var todayDisplay: String {
@@ -244,6 +263,7 @@ class TimerManager: ObservableObject {
                 remainingSeconds -= 1
             } else {
                 todayMinutes += originalDuration / 60
+                saveTodayMinutes()
                 state = .completed
                 elapsedSeconds = 0
             }
@@ -251,6 +271,61 @@ class TimerManager: ObservableObject {
             elapsedSeconds += 1
         default:
             break
+        }
+    }
+
+    // MARK: - Persistence
+
+    /// Returns today's date string using a 2AM boundary (before 2AM counts as previous day).
+    private static func effectiveDateString() -> String {
+        let now = Date()
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: now)
+        let effectiveDate = hour < 2
+            ? calendar.date(byAdding: .day, value: -1, to: now)!
+            : now
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: effectiveDate)
+    }
+
+    private func ensureStorageDir() {
+        try? FileManager.default.createDirectory(at: Self.storageDir, withIntermediateDirectories: true)
+    }
+
+    private func loadPersistedState() {
+        ensureStorageDir()
+
+        // Load todos
+        if let data = try? Data(contentsOf: Self.todosFile),
+           let loaded = try? JSONDecoder().decode([TodoItem].self, from: data) {
+            todos = loaded
+        }
+
+        // Load today's minutes, resetting if the effective date has changed
+        if let data = try? Data(contentsOf: Self.todayFile),
+           let loaded = try? JSONDecoder().decode(TodayData.self, from: data) {
+            if loaded.date == Self.effectiveDateString() {
+                todayMinutes = loaded.minutes
+            } else {
+                todayMinutes = 0
+                saveTodayMinutes()
+            }
+        }
+    }
+
+    private func saveTodos() {
+        ensureStorageDir()
+        if let data = try? JSONEncoder().encode(todos) {
+            try? data.write(to: Self.todosFile, options: .atomic)
+        }
+    }
+
+    private func saveTodayMinutes() {
+        ensureStorageDir()
+        let todayData = TodayData(minutes: todayMinutes, date: Self.effectiveDateString())
+        if let data = try? JSONEncoder().encode(todayData) {
+            try? data.write(to: Self.todayFile, options: .atomic)
         }
     }
 }
