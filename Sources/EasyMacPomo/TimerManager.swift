@@ -30,6 +30,7 @@ class TimerManager: ObservableObject {
     private var hotkeyRef: EventHotKeyRef?
     private var todoInputPanel: TodoInputPanel?
     private(set) var originalDuration: Int = 0
+    private var pausedFromCompleted: Bool = false
 
     private static weak var shared: TimerManager?
 
@@ -37,11 +38,29 @@ class TimerManager: ObservableObject {
         TimerManager.shared = self
         registerHotkey()
         todoInputPanel = TodoInputPanel(timerManager: self)
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self, selector: #selector(systemWillSleep),
+            name: NSWorkspace.willSleepNotification, object: nil)
     }
 
     deinit {
         if let ref = hotkeyRef {
             UnregisterEventHotKey(ref)
+        }
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+    }
+
+    @objc private func systemWillSleep(_ notification: Notification) {
+        if state == .running {
+            pausedFromCompleted = false
+            state = .paused
+            timer?.invalidate()
+            timer = nil
+        } else if state == .completed {
+            pausedFromCompleted = true
+            state = .paused
+            timer?.invalidate()
+            timer = nil
         }
     }
 
@@ -128,7 +147,12 @@ class TimerManager: ObservableObject {
         switch state {
         case .idle:
             return ""
-        case .running, .paused:
+        case .running:
+            return formatTime(remainingSeconds)
+        case .paused:
+            if pausedFromCompleted {
+                return formatTime(originalDuration + elapsedSeconds)
+            }
             return formatTime(remainingSeconds)
         case .completed:
             return formatTime(originalDuration + elapsedSeconds)
@@ -159,9 +183,15 @@ class TimerManager: ObservableObject {
 
     func togglePause() {
         if state == .paused {
-            state = .running
+            if pausedFromCompleted {
+                pausedFromCompleted = false
+                state = .completed
+            } else {
+                state = .running
+            }
             startTimer()
         } else if state == .running {
+            pausedFromCompleted = false
             state = .paused
             timer?.invalidate()
             timer = nil
