@@ -39,8 +39,11 @@ class TimerManager: ObservableObject {
         registerHotkey()
         todoInputPanel = TodoInputPanel(timerManager: self)
         NSWorkspace.shared.notificationCenter.addObserver(
-            self, selector: #selector(systemWillSleep),
+            self, selector: #selector(pauseIfWorking),
             name: NSWorkspace.willSleepNotification, object: nil)
+        DistributedNotificationCenter.default().addObserver(
+            self, selector: #selector(pauseIfWorking),
+            name: NSNotification.Name("com.apple.screenIsLocked"), object: nil)
     }
 
     deinit {
@@ -48,9 +51,10 @@ class TimerManager: ObservableObject {
             UnregisterEventHotKey(ref)
         }
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+        DistributedNotificationCenter.default().removeObserver(self)
     }
 
-    @objc private func systemWillSleep(_ notification: Notification) {
+    @objc private func pauseIfWorking(_ notification: Notification) {
         if state == .running {
             pausedFromCompleted = false
             state = .paused
