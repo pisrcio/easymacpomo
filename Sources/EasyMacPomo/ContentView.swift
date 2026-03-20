@@ -45,6 +45,9 @@ struct ContentView: View {
                 .focused($isTodayFocused)
                 .onAppear {
                     todayEditText = timerManager.todayDisplay
+                    DispatchQueue.main.async {
+                        isTodayFocused = false
+                    }
                 }
                 .onChange(of: isTodayFocused) { focused in
                     if focused {
