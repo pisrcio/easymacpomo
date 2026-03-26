@@ -97,7 +97,7 @@ struct ContentView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(todo.isDone ? .secondary : .primary)
                         .strikethrough(todo.isDone)
-                        .lineLimit(1)
+                        .lineLimit(2)
                         .help(todo.text)
                     Spacer()
                     Button {
