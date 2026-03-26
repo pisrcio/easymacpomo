@@ -138,6 +138,11 @@ class TimerManager: ObservableObject {
         saveTodayMinutes()
     }
 
+    func resetTodayMinutes() {
+        todayMinutes = 0
+        saveTodayMinutes()
+    }
+
     func addTodo(_ text: String) {
         guard !text.isEmpty else { return }
         todos.append(TodoItem(text: text))

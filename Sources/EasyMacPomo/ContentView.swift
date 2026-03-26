@@ -5,6 +5,7 @@ struct ContentView: View {
     @State private var todayEditText: String = ""
     @FocusState private var isTodayFocused: Bool
     @State private var newTodoText: String = ""
+    @State private var showResetTodayAlert: Bool = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -34,7 +35,7 @@ struct ContentView: View {
 
     private var todayField: some View {
         HStack(spacing: 4) {
-            Text("Today:")
+            Text("Σ")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
             TextField("0", text: $todayEditText)
@@ -67,6 +68,24 @@ struct ContentView: View {
                 .onExitCommand {
                     commitTodayEdit()
                 }
+            Button {
+                showResetTodayAlert = true
+            } label: {
+                Image(systemName: "arrow.counterclockwise")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Reset today's total")
+            .alert("Reset Today", isPresented: $showResetTodayAlert) {
+                Button("Reset", role: .destructive) {
+                    timerManager.resetTodayMinutes()
+                    todayEditText = timerManager.todayDisplay
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Are you sure you want to reset today's total to 0?")
+            }
         }
     }
 
