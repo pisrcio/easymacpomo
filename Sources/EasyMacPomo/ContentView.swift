@@ -19,6 +19,38 @@ struct ContentView: View {
             }
 
             todayField
+
+            if showResetTodayAlert {
+                VStack(spacing: 8) {
+                    Text("Reset Today")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Are you sure you want to reset today's total to 0?")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    HStack(spacing: 12) {
+                        Button("Cancel") {
+                            showResetTodayAlert = false
+                        }
+                        .controlSize(.small)
+                        Button("Reset") {
+                            timerManager.resetTodayMinutes()
+                            todayEditText = timerManager.todayDisplay
+                            showResetTodayAlert = false
+                        }
+                        .controlSize(.small)
+                        .tint(.red)
+                    }
+                }
+                .padding(12)
+                .background(.background)
+                .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                )
+            }
+
             todoList
         }
         .padding(20)
@@ -77,15 +109,6 @@ struct ContentView: View {
             }
             .buttonStyle(.plain)
             .help("Reset today's total")
-            .alert("Reset Today", isPresented: $showResetTodayAlert) {
-                Button("Reset", role: .destructive) {
-                    timerManager.resetTodayMinutes()
-                    todayEditText = timerManager.todayDisplay
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("Are you sure you want to reset today's total to 0?")
-            }
         }
     }
 
