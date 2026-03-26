@@ -38,6 +38,7 @@ class TimerManager: ObservableObject {
 
     private var timer: Timer?
     private var restTimer: Timer?
+    private var pendingDeletions: [UUID: DispatchWorkItem] = [:]
     private var hotkeyRef: EventHotKeyRef?
     private var todoInputPanel: TodoInputPanel?
     private(set) var originalDuration: Int = 0
@@ -148,10 +149,15 @@ class TimerManager: ObservableObject {
             todos[index].isDone.toggle()
             saveTodos()
             if todos[index].isDone {
-                let todoId = id
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-                    self?.removeTodo(todoId)
+                let workItem = DispatchWorkItem { [weak self] in
+                    self?.pendingDeletions.removeValue(forKey: id)
+                    self?.removeTodo(id)
                 }
+                pendingDeletions[id] = workItem
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: workItem)
+            } else {
+                pendingDeletions[id]?.cancel()
+                pendingDeletions.removeValue(forKey: id)
             }
         }
     }
