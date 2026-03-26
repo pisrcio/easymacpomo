@@ -22,9 +22,9 @@ struct ContentView: View {
 
             if showResetTodayAlert {
                 VStack(spacing: 8) {
-                    Text("Reset Today")
+                    Text("Reset Total")
                         .font(.system(size: 13, weight: .semibold))
-                    Text("Are you sure you want to reset today's total to 0?")
+                    Text("Are you sure?")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
