@@ -231,9 +231,14 @@ class TimerManager: ObservableObject {
     func reset() {
         timer?.invalidate()
         timer = nil
+        let elapsed = sessionElapsedMinutes
         state = .idle
         remainingSeconds = 0
         elapsedSeconds = 0
+        if elapsed > 0 {
+            todayMinutes += elapsed
+            saveTodayMinutes()
+        }
         FocusManager.disableDoNotDisturb()
         startRestTimer()
     }
@@ -241,9 +246,14 @@ class TimerManager: ObservableObject {
     func stop() {
         timer?.invalidate()
         timer = nil
+        let elapsed = sessionElapsedMinutes
         state = .idle
         remainingSeconds = 0
         elapsedSeconds = 0
+        if elapsed > 0 {
+            todayMinutes += elapsed
+            saveTodayMinutes()
+        }
         FocusManager.disableDoNotDisturb()
         startRestTimer()
     }
