@@ -34,8 +34,8 @@ struct ContentView: View {
                         }
                         .controlSize(.small)
                         Button("Reset") {
-                            timerManager.resetTodayMinutes()
-                            todayEditText = timerManager.todayDisplay
+                            timerManager.resetSumMinutes()
+                            todayEditText = timerManager.sumDisplay
                             showResetTodayAlert = false
                         }
                         .controlSize(.small)
@@ -57,12 +57,12 @@ struct ContentView: View {
         .frame(width: 220)
     }
 
-    private func commitTodayEdit() {
+    private func commitSumEdit() {
         if let mins = Int(todayEditText) {
-            timerManager.setTodayTotal(mins)
+            timerManager.setSumTotal(mins)
         }
         isTodayFocused = false
-        todayEditText = timerManager.todayDisplay
+        todayEditText = timerManager.sumDisplay
     }
 
     private var todayField: some View {
@@ -77,28 +77,28 @@ struct ContentView: View {
                 .frame(width: 50)
                 .focused($isTodayFocused)
                 .onAppear {
-                    todayEditText = timerManager.todayDisplay
+                    todayEditText = timerManager.sumDisplay
                     DispatchQueue.main.async {
                         isTodayFocused = false
                     }
                 }
                 .onChange(of: isTodayFocused) { focused in
                     if focused {
-                        todayEditText = "\(timerManager.todayTotalMinutes)"
+                        todayEditText = "\(timerManager.sumMinutes)"
                     } else {
-                        commitTodayEdit()
+                        commitSumEdit()
                     }
                 }
-                .onChange(of: timerManager.todayTotalMinutes) { _ in
+                .onChange(of: timerManager.sumMinutes) { _ in
                     if !isTodayFocused {
-                        todayEditText = timerManager.todayDisplay
+                        todayEditText = timerManager.sumDisplay
                     }
                 }
                 .onSubmit {
-                    commitTodayEdit()
+                    commitSumEdit()
                 }
                 .onExitCommand {
-                    commitTodayEdit()
+                    commitSumEdit()
                 }
             Button {
                 showResetTodayAlert = true

@@ -32,7 +32,7 @@ class TimerManager: ObservableObject {
     @Published var remainingSeconds: Int = 0
     @Published var elapsedSeconds: Int = 0
     @Published var restSeconds: Int = 0
-    @Published var todayMinutes: Int = 0
+    @Published var sumMinutes: Int = 0
     @Published var todos: [TodoItem] = []
     @Published var isAddingTodo: Bool = false
 
@@ -113,34 +113,14 @@ class TimerManager: ObservableObject {
         self.hotkeyRef = hotKeyRef
     }
 
-    private var sessionElapsedMinutes: Int {
-        switch state {
-        case .running:
-            return (originalDuration - remainingSeconds) / 60
-        case .paused:
-            if pausedFromCompleted {
-                return elapsedSeconds / 60
-            }
-            return (originalDuration - remainingSeconds) / 60
-        case .completed:
-            return elapsedSeconds / 60
-        default:
-            return 0
-        }
+    func setSumTotal(_ total: Int) {
+        sumMinutes = total
+        saveSumMinutes()
     }
 
-    var todayTotalMinutes: Int {
-        return todayMinutes + sessionElapsedMinutes
-    }
-
-    func setTodayTotal(_ total: Int) {
-        todayMinutes = total - sessionElapsedMinutes
-        saveTodayMinutes()
-    }
-
-    func resetTodayMinutes() {
-        todayMinutes = 0
-        saveTodayMinutes()
+    func resetSumMinutes() {
+        sumMinutes = 0
+        saveSumMinutes()
     }
 
     func addTodo(_ text: String) {
@@ -172,12 +152,11 @@ class TimerManager: ObservableObject {
         saveTodos()
     }
 
-    var todayDisplay: String {
-        let total = todayTotalMinutes
-        if total >= 60 {
-            return "\(total / 60)h \(total % 60)m"
+    var sumDisplay: String {
+        if sumMinutes >= 60 {
+            return "\(sumMinutes / 60)h \(sumMinutes % 60)m"
         }
-        return "\(total)m"
+        return "\(sumMinutes)m"
     }
 
     var restDisplay: String {
@@ -242,14 +221,9 @@ class TimerManager: ObservableObject {
     func reset() {
         timer?.invalidate()
         timer = nil
-        let elapsed = sessionElapsedMinutes
         state = .idle
         remainingSeconds = 0
         elapsedSeconds = 0
-        if elapsed > 0 {
-            todayMinutes += elapsed
-            saveTodayMinutes()
-        }
         FocusManager.disableDoNotDisturb()
         startRestTimer()
     }
@@ -257,14 +231,9 @@ class TimerManager: ObservableObject {
     func stop() {
         timer?.invalidate()
         timer = nil
-        let elapsed = sessionElapsedMinutes
         state = .idle
         remainingSeconds = 0
         elapsedSeconds = 0
-        if elapsed > 0 {
-            todayMinutes += elapsed
-            saveTodayMinutes()
-        }
         FocusManager.disableDoNotDisturb()
         startRestTimer()
     }
@@ -289,14 +258,20 @@ class TimerManager: ObservableObject {
         case .running:
             if remainingSeconds > 0 {
                 remainingSeconds -= 1
+                if remainingSeconds % 60 == 0 {
+                    sumMinutes += 1
+                    saveSumMinutes()
+                }
             } else {
-                todayMinutes += originalDuration / 60
-                saveTodayMinutes()
                 state = .completed
                 elapsedSeconds = 0
             }
         case .completed:
             elapsedSeconds += 1
+            if elapsedSeconds % 60 == 0 {
+                sumMinutes += 1
+                saveSumMinutes()
+            }
         default:
             break
         }
@@ -330,14 +305,14 @@ class TimerManager: ObservableObject {
             todos = loaded
         }
 
-        // Load today's minutes, resetting if the effective date has changed
+        // Load sum minutes, resetting if the effective date has changed
         if let data = try? Data(contentsOf: Self.todayFile),
            let loaded = try? JSONDecoder().decode(TodayData.self, from: data) {
             if loaded.date == Self.effectiveDateString() {
-                todayMinutes = loaded.minutes
+                sumMinutes = loaded.minutes
             } else {
-                todayMinutes = 0
-                saveTodayMinutes()
+                sumMinutes = 0
+                saveSumMinutes()
             }
         }
     }
@@ -349,9 +324,9 @@ class TimerManager: ObservableObject {
         }
     }
 
-    private func saveTodayMinutes() {
+    private func saveSumMinutes() {
         ensureStorageDir()
-        let todayData = TodayData(minutes: todayMinutes, date: Self.effectiveDateString())
+        let todayData = TodayData(minutes: sumMinutes, date: Self.effectiveDateString())
         if let data = try? JSONEncoder().encode(todayData) {
             try? data.write(to: Self.todayFile, options: .atomic)
         }
