@@ -139,7 +139,7 @@ class TimerManager: ObservableObject {
     }
 
     func resetTodayMinutes() {
-        todayMinutes = 0
+        todayMinutes = -sessionElapsedMinutes
         saveTodayMinutes()
     }
 
