@@ -1,4 +1,6 @@
 import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @ObservedObject var timerManager: TimerManager
@@ -52,6 +54,8 @@ struct ContentView: View {
             }
 
             todoList
+
+            exportButton
         }
         .padding(20)
         .frame(width: 220)
@@ -246,6 +250,131 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity)
             }
             .controlSize(.large)
+        }
+    }
+
+    private var pageName: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return "EasyMacPomo-\(formatter.string(from: Date()))"
+    }
+
+    private var exportButton: some View {
+        Button {
+            exportPDF()
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 10))
+                Text("Export PDF")
+                    .font(.system(size: 11))
+            }
+            .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help("Export session summary as PDF")
+    }
+
+    private func exportPDF() {
+        let pdfWidth: CGFloat = 400
+        let margin: CGFloat = 30
+        let contentWidth = pdfWidth - margin * 2
+        var yOffset: CGFloat = margin
+
+        let titleFont = NSFont.systemFont(ofSize: 18, weight: .bold)
+        let headingFont = NSFont.systemFont(ofSize: 13, weight: .semibold)
+        let bodyFont = NSFont.systemFont(ofSize: 11)
+        let bodyColor = NSColor.labelColor
+        let secondaryColor = NSColor.secondaryLabelColor
+
+        // Pre-calculate content height
+        var estimatedHeight: CGFloat = margin
+        estimatedHeight += 30 // title
+        estimatedHeight += 25 // date
+        estimatedHeight += 30 // total time
+        estimatedHeight += 30 // heading
+        estimatedHeight += CGFloat(timerManager.todos.count) * 20
+        if timerManager.todos.isEmpty { estimatedHeight += 20 }
+        estimatedHeight += margin
+
+        let pdfData = NSMutableData()
+        var mediaBox = CGRect(x: 0, y: 0, width: pdfWidth, height: estimatedHeight)
+
+        guard let consumer = CGDataConsumer(data: pdfData as CFMutableData),
+              let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil) else { return }
+
+        context.beginPDFPage(nil)
+
+        // Flip coordinate system for natural top-down drawing
+        context.translateBy(x: 0, y: estimatedHeight)
+        context.scaleBy(x: 1, y: -1)
+
+        let nsContext = NSGraphicsContext(cgContext: context, flipped: true)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = nsContext
+
+        // Title
+        let title = pageName
+        title.draw(at: NSPoint(x: margin, y: yOffset), withAttributes: [
+            .font: titleFont, .foregroundColor: bodyColor
+        ])
+        yOffset += 28
+
+        // Date
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .long
+        let dateStr = dateFormatter.string(from: Date())
+        dateStr.draw(at: NSPoint(x: margin, y: yOffset), withAttributes: [
+            .font: bodyFont, .foregroundColor: secondaryColor
+        ])
+        yOffset += 22
+
+        // Total time
+        let totalStr = "Total: \(timerManager.sumDisplay)"
+        totalStr.draw(at: NSPoint(x: margin, y: yOffset), withAttributes: [
+            .font: headingFont, .foregroundColor: bodyColor
+        ])
+        yOffset += 28
+
+        // Todos heading
+        "Todos".draw(at: NSPoint(x: margin, y: yOffset), withAttributes: [
+            .font: headingFont, .foregroundColor: bodyColor
+        ])
+        yOffset += 20
+
+        // Todo items
+        if timerManager.todos.isEmpty {
+            "No todos".draw(at: NSPoint(x: margin, y: yOffset), withAttributes: [
+                .font: bodyFont, .foregroundColor: secondaryColor
+            ])
+        } else {
+            for todo in timerManager.todos {
+                let prefix = todo.isDone ? "✓ " : "○ "
+                let color = todo.isDone ? secondaryColor : bodyColor
+                let text = NSAttributedString(string: "\(prefix)\(todo.text)", attributes: [
+                    .font: bodyFont,
+                    .foregroundColor: color,
+                    .strikethroughStyle: todo.isDone ? NSUnderlineStyle.single.rawValue : 0
+                ])
+                text.draw(with: NSRect(x: margin, y: yOffset, width: contentWidth, height: 18), options: [.usesLineFragmentOrigin])
+                yOffset += 18
+            }
+        }
+
+        NSGraphicsContext.restoreGraphicsState()
+        context.endPDFPage()
+        context.closePDF()
+
+        // Show save panel with page name as default filename
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.pdf]
+        savePanel.nameFieldStringValue = "\(pageName).pdf"
+        savePanel.title = "Export PDF"
+
+        savePanel.begin { response in
+            if response == .OK, let url = savePanel.url {
+                try? pdfData.write(to: url, options: .atomic)
+            }
         }
     }
 }
