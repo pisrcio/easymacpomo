@@ -48,7 +48,8 @@ class TimerManager: ObservableObject {
     private var restTimer: Timer?
     private var activityMonitorTimer: Timer?
     private var pauseGraceEndTime: Date?
-    private var activityStartTime: Date?
+    private var recentActivityTimestamps: [Date] = []
+    private var lastPolledEventTime: Date?
     private var pendingDeletions: [UUID: DispatchWorkItem] = [:]
     private var hotkeyRef: EventHotKeyRef?
     private var todoInputPanel: TodoInputPanel?
@@ -57,10 +58,10 @@ class TimerManager: ObservableObject {
 
     /// Grace period after pausing during which user activity is ignored.
     private static let pauseGracePeriod: TimeInterval = 30
-    /// Sustained activity required after the grace period before auto-resuming.
-    private static let sustainedActivityPeriod: TimeInterval = 30
-    /// Maximum idle gap that still counts the user as currently active.
-    private static let activeRecencyThreshold: TimeInterval = 5
+    /// Rolling window used to count activity events toward auto-resume.
+    private static let activityWindow: TimeInterval = 30
+    /// Number of activity events required within the window to auto-resume.
+    private static let requiredActivityEvents: Int = 5
 
     /// Event types that count as user activity for auto-resume.
     private static let monitoredEventTypes: [CGEventType] = [
@@ -292,7 +293,8 @@ class TimerManager: ObservableObject {
     private func startActivityMonitor() {
         activityMonitorTimer?.invalidate()
         pauseGraceEndTime = Date().addingTimeInterval(Self.pauseGracePeriod)
-        activityStartTime = nil
+        recentActivityTimestamps.removeAll()
+        lastPolledEventTime = nil
         activityMonitorTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.checkForActivity()
         }
@@ -302,7 +304,8 @@ class TimerManager: ObservableObject {
         activityMonitorTimer?.invalidate()
         activityMonitorTimer = nil
         pauseGraceEndTime = nil
-        activityStartTime = nil
+        recentActivityTimestamps.removeAll()
+        lastPolledEventTime = nil
     }
 
     private func checkForActivity() {
@@ -315,25 +318,29 @@ class TimerManager: ObservableObject {
 
         // Ignore all activity during the grace period right after pausing.
         if now < graceEnd {
-            activityStartTime = nil
             return
         }
 
+        // Timestamp of the most recent event across all monitored types.
         let minIdle = Self.monitoredEventTypes
             .map { CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: $0) }
             .min() ?? .infinity
+        let currentEventTime = now.addingTimeInterval(-minIdle)
 
-        if minIdle < Self.activeRecencyThreshold {
-            // User is active right now. Require sustained activity before resuming.
-            if activityStartTime == nil {
-                activityStartTime = now
-            } else if let start = activityStartTime,
-                      now.timeIntervalSince(start) >= Self.sustainedActivityPeriod {
-                togglePause()
-            }
-        } else {
-            // Gap in activity - reset the sustained-activity counter.
-            activityStartTime = nil
+        // Count it as a new event if it happened after the grace period and
+        // after anything we've already recorded.
+        let threshold = lastPolledEventTime ?? graceEnd
+        if currentEventTime > threshold {
+            recentActivityTimestamps.append(currentEventTime)
+            lastPolledEventTime = currentEventTime
+        }
+
+        // Drop events that have fallen out of the rolling window.
+        let windowStart = now.addingTimeInterval(-Self.activityWindow)
+        recentActivityTimestamps.removeAll { $0 < windowStart }
+
+        if recentActivityTimestamps.count >= Self.requiredActivityEvents {
+            togglePause()
         }
     }
 
