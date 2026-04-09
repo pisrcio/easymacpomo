@@ -28,7 +28,15 @@ struct TodayData: Codable {
 }
 
 class TimerManager: ObservableObject {
-    @Published var state: TimerState = .idle
+    @Published var state: TimerState = .idle {
+        didSet {
+            if state == .paused {
+                startActivityMonitor()
+            } else {
+                stopActivityMonitor()
+            }
+        }
+    }
     @Published var remainingSeconds: Int = 0
     @Published var elapsedSeconds: Int = 0
     @Published var restSeconds: Int = 0
@@ -38,11 +46,30 @@ class TimerManager: ObservableObject {
 
     private var timer: Timer?
     private var restTimer: Timer?
+    private var activityMonitorTimer: Timer?
+    private var activityMonitorStartTime: Date?
     private var pendingDeletions: [UUID: DispatchWorkItem] = [:]
     private var hotkeyRef: EventHotKeyRef?
     private var todoInputPanel: TodoInputPanel?
     private(set) var originalDuration: Int = 0
     private var pausedFromCompleted: Bool = false
+
+    /// Event types that count as user activity for auto-resume.
+    private static let monitoredEventTypes: [CGEventType] = [
+        .keyDown,
+        .flagsChanged,
+        .mouseMoved,
+        .leftMouseDown,
+        .leftMouseUp,
+        .leftMouseDragged,
+        .rightMouseDown,
+        .rightMouseUp,
+        .rightMouseDragged,
+        .otherMouseDown,
+        .otherMouseUp,
+        .otherMouseDragged,
+        .scrollWheel
+    ]
 
     private static weak var shared: TimerManager?
     private static let storageDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".easymacpomo")
@@ -63,6 +90,7 @@ class TimerManager: ObservableObject {
     }
 
     deinit {
+        activityMonitorTimer?.invalidate()
         if let ref = hotkeyRef {
             UnregisterEventHotKey(ref)
         }
@@ -250,6 +278,34 @@ class TimerManager: ObservableObject {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             self?.tick()
+        }
+    }
+
+    private func startActivityMonitor() {
+        activityMonitorTimer?.invalidate()
+        activityMonitorStartTime = Date()
+        activityMonitorTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            self?.checkForActivity()
+        }
+    }
+
+    private func stopActivityMonitor() {
+        activityMonitorTimer?.invalidate()
+        activityMonitorTimer = nil
+        activityMonitorStartTime = nil
+    }
+
+    private func checkForActivity() {
+        guard state == .paused, let startTime = activityMonitorStartTime else {
+            stopActivityMonitor()
+            return
+        }
+        let minIdle = Self.monitoredEventTypes
+            .map { CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: $0) }
+            .min() ?? .infinity
+        let lastEventTime = Date().addingTimeInterval(-minIdle)
+        if lastEventTime > startTime {
+            togglePause()
         }
     }
 
