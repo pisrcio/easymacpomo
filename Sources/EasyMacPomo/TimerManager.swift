@@ -32,20 +32,24 @@ class TimerManager: ObservableObject {
         didSet {
             if state == .paused {
                 startActivityMonitor()
+                startPauseTimer()
             } else {
                 stopActivityMonitor()
+                stopPauseTimer()
             }
         }
     }
     @Published var remainingSeconds: Int = 0
     @Published var elapsedSeconds: Int = 0
     @Published var restSeconds: Int = 0
+    @Published var pauseSeconds: Int = 0
     @Published var sumMinutes: Int = 0
     @Published var todos: [TodoItem] = []
     @Published var isAddingTodo: Bool = false
 
     private var timer: Timer?
     private var restTimer: Timer?
+    private var pauseTimer: Timer?
     private var activityMonitorTimer: Timer?
     private var pauseGraceEndTime: Date?
     private var recentActivityTimestamps: [Date] = []
@@ -100,6 +104,7 @@ class TimerManager: ObservableObject {
 
     deinit {
         activityMonitorTimer?.invalidate()
+        pauseTimer?.invalidate()
         if let ref = hotkeyRef {
             UnregisterEventHotKey(ref)
         }
@@ -207,10 +212,7 @@ class TimerManager: ObservableObject {
         case .running:
             return formatTime(remainingSeconds)
         case .paused:
-            if pausedFromCompleted {
-                return formatTime(originalDuration + elapsedSeconds)
-            }
-            return formatTime(remainingSeconds)
+            return formatTime(pauseSeconds)
         case .completed:
             return formatTime(originalDuration + elapsedSeconds)
         }
@@ -281,6 +283,20 @@ class TimerManager: ObservableObject {
         restTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             self?.restSeconds += 1
         }
+    }
+
+    private func startPauseTimer() {
+        pauseSeconds = 0
+        pauseTimer?.invalidate()
+        pauseTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            self?.pauseSeconds += 1
+        }
+    }
+
+    private func stopPauseTimer() {
+        pauseTimer?.invalidate()
+        pauseTimer = nil
+        pauseSeconds = 0
     }
 
     private func startTimer() {
