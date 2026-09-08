@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @ObservedObject var timerManager: TimerManager
@@ -6,6 +7,7 @@ struct ContentView: View {
     @FocusState private var isTodayFocused: Bool
     @State private var newTodoText: String = ""
     @State private var showResetTodayAlert: Bool = false
+    @State private var draggingTodoID: UUID?
 
     var body: some View {
         VStack(spacing: 16) {
@@ -113,25 +115,9 @@ struct ContentView: View {
     }
 
     private var todoList: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(timerManager.todos) { todo in
-                HStack(spacing: 6) {
-                    Text(todo.text)
-                        .font(.system(size: 11))
-                        .foregroundStyle(todo.isDone ? .secondary : .primary)
-                        .strikethrough(todo.isDone)
-                        .lineLimit(2)
-                        .help(todo.text)
-                    Spacer()
-                    Button {
-                        timerManager.toggleTodo(todo.id)
-                    } label: {
-                        Image(systemName: todo.isDone ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 12))
-                            .foregroundStyle(todo.isDone ? .green : .secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(TodoSection.allCases, id: \.self) { section in
+                todoSection(section)
             }
 
             if timerManager.isAddingTodo {
@@ -149,6 +135,64 @@ struct ContentView: View {
                     }
             }
         }
+    }
+
+    /// One tinted band of the list. The band itself is the drop target for the
+    /// end of the section, so items can land in it even when it is empty.
+    private func todoSection(_ section: TodoSection) -> some View {
+        let items = timerManager.todos(in: section)
+        return VStack(alignment: .leading, spacing: 4) {
+            ForEach(items) { todo in
+                todoRow(todo)
+                    .onDrag {
+                        draggingTodoID = todo.id
+                        return NSItemProvider(object: todo.id.uuidString as NSString)
+                    }
+                    .onDrop(of: [.text], delegate: TodoDropDelegate(
+                        targetID: todo.id,
+                        section: section,
+                        timerManager: timerManager,
+                        draggingTodoID: $draggingTodoID))
+            }
+
+            if items.isEmpty {
+                Text(section.emptyLabel)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 18, alignment: .leading)
+        .padding(.vertical, 5)
+        .padding(.horizontal, 7)
+        .background(section.tint.opacity(0.13), in: RoundedRectangle(cornerRadius: 6))
+        .contentShape(Rectangle())
+        .onDrop(of: [.text], delegate: TodoDropDelegate(
+            targetID: nil,
+            section: section,
+            timerManager: timerManager,
+            draggingTodoID: $draggingTodoID))
+    }
+
+    private func todoRow(_ todo: TodoItem) -> some View {
+        HStack(spacing: 6) {
+            Text(todo.text)
+                .font(.system(size: 11, weight: todo.section == .errand ? .regular : .bold))
+                .foregroundStyle(todo.isDone ? .secondary : .primary)
+                .strikethrough(todo.isDone)
+                .lineLimit(2)
+                .help(todo.text)
+            Spacer()
+            Button {
+                timerManager.toggleTodo(todo.id)
+            } label: {
+                Image(systemName: todo.isDone ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 12))
+                    .foregroundStyle(todo.isDone ? .green : .secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .opacity(draggingTodoID == todo.id ? 0.4 : 1)
+        .contentShape(Rectangle())
     }
 
     private var idleView: some View {
@@ -247,6 +291,56 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity)
             }
             .controlSize(.large)
+        }
+    }
+}
+
+/// Reorders live as the drag passes over a row (or over the band itself, where
+/// `targetID` is nil and the item lands at the end of that section).
+struct TodoDropDelegate: DropDelegate {
+    let targetID: UUID?
+    let section: TodoSection
+    let timerManager: TimerManager
+    @Binding var draggingTodoID: UUID?
+
+    func validateDrop(info: DropInfo) -> Bool {
+        draggingTodoID != nil
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard let dragged = draggingTodoID, dragged != targetID else { return }
+        withAnimation(.easeInOut(duration: 0.15)) {
+            timerManager.moveTodo(dragged, before: targetID, section: section)
+        }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggingTodoID = nil
+        return true
+    }
+
+    func dropExited(info: DropInfo) {}
+}
+
+extension TodoSection {
+    /// Band background tint — kept low-opacity so the text stays legible.
+    var tint: Color {
+        switch self {
+        case .goal: return .red
+        case .main: return .yellow
+        case .errand: return .green
+        }
+    }
+
+    var emptyLabel: String {
+        switch self {
+        case .goal: return "Long-term goals (⌘⌥⌃[)"
+        case .main: return "Today (⌘⌥⌃])"
+        case .errand: return "Errands (⌘⌥⌃\\)"
         }
     }
 }

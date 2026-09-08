@@ -4,21 +4,27 @@ import SwiftUI
 class TodoInputPanel {
     private var panel: NSPanel?
     private weak var timerManager: TimerManager?
+    private var currentSection: TodoSection = .errand
 
     init(timerManager: TimerManager) {
         self.timerManager = timerManager
     }
 
-    func show() {
+    func show(section: TodoSection = .errand) {
         if let panel = panel {
-            panel.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
+            if section == currentSection {
+                panel.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+                return
+            }
+            // Switching modes: rebuild the panel for the other section.
+            dismiss()
         }
 
         guard let timerManager = timerManager else { return }
+        currentSection = section
 
-        let inputView = TodoInputView(timerManager: timerManager) { [weak self] in
+        let inputView = TodoInputView(timerManager: timerManager, section: section) { [weak self] in
             self?.dismiss()
         }
 
@@ -31,7 +37,7 @@ class TodoInputPanel {
             backing: .buffered,
             defer: false
         )
-        panel.title = "EasyMacPomo"
+        panel.title = "EasyMacPomo — \(section.title)"
         panel.contentView = hostingView
         panel.isFloatingPanel = true
         panel.level = .floating
@@ -57,15 +63,24 @@ class TodoInputPanel {
 
 struct TodoInputView: View {
     @ObservedObject var timerManager: TimerManager
+    var section: TodoSection
     var onDismiss: () -> Void
     @State private var text: String = ""
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        TextField("Add todo...", text: $text)
+        TextField(section.placeholder, text: $text)
             .font(.system(size: 14))
             .textFieldStyle(.plain)
             .padding(12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Same colour coding as the list bands, so the panel says which
+            // section you are typing into.
+            .background(section.tint.opacity(0.18))
+            .overlay(
+                Rectangle()
+                    .stroke(section.tint.opacity(0.55), lineWidth: 2)
+            )
             .focused($isFocused)
             .onAppear {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -73,7 +88,7 @@ struct TodoInputView: View {
                 }
             }
             .onSubmit {
-                timerManager.addTodo(text)
+                timerManager.addTodo(text, section: section)
                 text = ""
                 onDismiss()
             }

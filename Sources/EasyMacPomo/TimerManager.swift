@@ -10,21 +10,82 @@ enum TimerState {
     case completed
 }
 
+/// Which band of the list a todo lives in, top to bottom.
+enum TodoSection: String, Codable, CaseIterable {
+    case goal    // long-term goals
+    case main    // today's main thread
+    case errand
+
+    /// Top-to-bottom display order.
+    var rank: Int {
+        switch self {
+        case .goal: return 0
+        case .main: return 1
+        case .errand: return 2
+        }
+    }
+
+    var placeholder: String {
+        switch self {
+        case .goal: return "Add long-term goal..."
+        case .main: return "Add task..."
+        case .errand: return "Add errand..."
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .goal: return "Goal"
+        case .main: return "Task"
+        case .errand: return "Errand"
+        }
+    }
+}
+
 struct TodoItem: Identifiable, Codable {
     let id: UUID
     var text: String
     var isDone: Bool = false
+    var section: TodoSection = .errand
 
-    init(text: String) {
+    init(text: String, section: TodoSection = .errand) {
         self.id = UUID()
         self.text = text
         self.isDone = false
+        self.section = section
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, text, isDone, section, isMain
+    }
+
+    // Custom coding so todo files written before `section` existed still load:
+    // those carry an `isMain` flag (or nothing at all, meaning errand).
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        text = try container.decode(String.self, forKey: .text)
+        isDone = try container.decodeIfPresent(Bool.self, forKey: .isDone) ?? false
+        if let stored = try container.decodeIfPresent(TodoSection.self, forKey: .section) {
+            section = stored
+        } else {
+            let wasMain = try container.decodeIfPresent(Bool.self, forKey: .isMain) ?? false
+            section = wasMain ? .main : .errand
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(text, forKey: .text)
+        try container.encode(isDone, forKey: .isDone)
+        try container.encode(section, forKey: .section)
     }
 }
 
 struct TodayData: Codable {
     var minutes: Int
-    var date: String // "yyyy-MM-dd" using 2AM boundary
+    var date: String // "yyyy-MM-dd" using 3AM boundary
 }
 
 class TimerManager: ObservableObject {
@@ -51,14 +112,19 @@ class TimerManager: ObservableObject {
     private var restTimer: Timer?
     private var pauseTimer: Timer?
     private var activityMonitorTimer: Timer?
+    private var dayRolloverTimer: Timer?
+    private var currentEffectiveDate: String = TimerManager.effectiveDateString()
     private var pauseGraceEndTime: Date?
     private var recentActivityTimestamps: [Date] = []
     private var lastPolledEventTime: Date?
     private var pendingDeletions: [UUID: DispatchWorkItem] = [:]
-    private var hotkeyRef: EventHotKeyRef?
+    private var hotkeyRefs: [EventHotKeyRef] = []
     private var todoInputPanel: TodoInputPanel?
     private(set) var originalDuration: Int = 0
     private var pausedFromCompleted: Bool = false
+
+    /// Hour at which the accumulated total rolls over to a new day.
+    static let dayBoundaryHour: Int = 3
 
     /// Grace period after pausing during which user activity is ignored.
     private static let pauseGracePeriod: TimeInterval = 30
@@ -66,6 +132,13 @@ class TimerManager: ObservableObject {
     private static let activityWindow: TimeInterval = 30
     /// Number of activity events required within the window to auto-resume.
     private static let requiredActivityEvents: Int = 5
+
+    /// Hotkey id -> section. Carbon ids must be non-zero.
+    private static let hotKeySections: [UInt32: TodoSection] = [
+        1: .errand,
+        2: .main,
+        3: .goal
+    ]
 
     /// Event types that count as user activity for auto-resume.
     private static let monitoredEventTypes: [CGEventType] = [
@@ -92,6 +165,7 @@ class TimerManager: ObservableObject {
     init() {
         TimerManager.shared = self
         loadPersistedState()
+        startDayRolloverTimer()
         registerHotkey()
         todoInputPanel = TodoInputPanel(timerManager: self)
         NSWorkspace.shared.notificationCenter.addObserver(
@@ -103,9 +177,10 @@ class TimerManager: ObservableObject {
     }
 
     deinit {
+        dayRolloverTimer?.invalidate()
         activityMonitorTimer?.invalidate()
         pauseTimer?.invalidate()
-        if let ref = hotkeyRef {
+        for ref in hotkeyRefs {
             UnregisterEventHotKey(ref)
         }
         NSWorkspace.shared.notificationCenter.removeObserver(self)
@@ -126,33 +201,39 @@ class TimerManager: ObservableObject {
         }
     }
 
-    func showTodoInput() {
-        todoInputPanel?.show()
+    func showTodoInput(section: TodoSection = .errand) {
+        todoInputPanel?.show(section: section)
     }
 
     private func registerHotkey() {
         // Carbon hotkey: works globally without Accessibility permissions
-        let hotKeyID = EventHotKeyID(signature: OSType(0x504F4D4F), id: 1) // "POMO"
         // Modifiers: cmdKey=0x100, optionKey=0x800, controlKey=0x1000
         let modifiers: UInt32 = UInt32(cmdKey | optionKey | controlKey)
-        let keyCode: UInt32 = 0x2A // kVK_ANSI_Backslash
 
         var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         InstallEventHandler(GetApplicationEventTarget(), { _, event, _ -> OSStatus in
             guard let event = event else { return OSStatus(eventNotHandledErr) }
             var hotKeyID = EventHotKeyID()
             GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil, MemoryLayout<EventHotKeyID>.size, nil, &hotKeyID)
-            if hotKeyID.id == 1 {
+            if let section = TimerManager.hotKeySections[hotKeyID.id] {
                 DispatchQueue.main.async {
-                    TimerManager.shared?.showTodoInput()
+                    TimerManager.shared?.showTodoInput(section: section)
                 }
             }
             return noErr
         }, 1, &eventType, nil, nil)
 
-        var hotKeyRef: EventHotKeyRef?
-        RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetApplicationEventTarget(), 0, &hotKeyRef)
-        self.hotkeyRef = hotKeyRef
+        // cmd+opt+ctrl+\ -> errand, +] -> today's main thread, +[ -> long-term goal
+        hotkeyRefs = [
+            (UInt32(1), UInt32(kVK_ANSI_Backslash)),
+            (UInt32(2), UInt32(kVK_ANSI_RightBracket)),
+            (UInt32(3), UInt32(kVK_ANSI_LeftBracket))
+        ].compactMap { id, keyCode in
+            var ref: EventHotKeyRef?
+            let hotKeyID = EventHotKeyID(signature: OSType(0x504F4D4F), id: id) // "POMO"
+            RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetApplicationEventTarget(), 0, &ref)
+            return ref
+        }
     }
 
     func setSumTotal(_ total: Int) {
@@ -165,9 +246,32 @@ class TimerManager: ObservableObject {
         saveSumMinutes()
     }
 
-    func addTodo(_ text: String) {
+    func todos(in section: TodoSection) -> [TodoItem] {
+        todos.filter { $0.section == section }
+    }
+
+    func addTodo(_ text: String, section: TodoSection = .errand) {
         guard !text.isEmpty else { return }
-        todos.append(TodoItem(text: text))
+        todos.append(TodoItem(text: text, section: section))
+        saveTodos()
+    }
+
+    /// Moves `id` directly before `targetId`, or to the end of the given section
+    /// when `targetId` is nil. Crossing into another band retags the item.
+    func moveTodo(_ id: UUID, before targetId: UUID?, section: TodoSection) {
+        guard id != targetId, let from = todos.firstIndex(where: { $0.id == id }) else { return }
+        var item = todos.remove(at: from)
+        item.section = section
+
+        if let targetId = targetId, let to = todos.firstIndex(where: { $0.id == targetId }) {
+            todos.insert(item, at: to)
+        } else if let last = todos.lastIndex(where: { $0.section == section }) {
+            todos.insert(item, at: last + 1)
+        } else if let next = todos.firstIndex(where: { $0.section.rank > section.rank }) {
+            todos.insert(item, at: next)
+        } else {
+            todos.append(item)
+        }
         saveTodos()
     }
 
@@ -386,12 +490,11 @@ class TimerManager: ObservableObject {
 
     // MARK: - Persistence
 
-    /// Returns today's date string using a 2AM boundary (before 2AM counts as previous day).
-    private static func effectiveDateString() -> String {
-        let now = Date()
+    /// Returns today's date string using a 3AM boundary (before 3AM counts as previous day).
+    private static func effectiveDateString(_ now: Date = Date()) -> String {
         let calendar = Calendar.current
         let hour = calendar.component(.hour, from: now)
-        let effectiveDate = hour < 2
+        let effectiveDate = hour < dayBoundaryHour
             ? calendar.date(byAdding: .day, value: -1, to: now)!
             : now
         let formatter = DateFormatter()
@@ -422,6 +525,25 @@ class TimerManager: ObservableObject {
                 saveSumMinutes()
             }
         }
+        currentEffectiveDate = Self.effectiveDateString()
+    }
+
+    /// Polls for the 3AM day boundary so a long-running app resets on its own.
+    /// Polling (rather than a one-shot timer at 3AM) keeps it correct across
+    /// sleep/wake and clock changes.
+    private func startDayRolloverTimer() {
+        dayRolloverTimer?.invalidate()
+        dayRolloverTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            self?.checkDayRollover()
+        }
+    }
+
+    private func checkDayRollover() {
+        let today = Self.effectiveDateString()
+        guard today != currentEffectiveDate else { return }
+        currentEffectiveDate = today
+        sumMinutes = 0
+        saveSumMinutes()
     }
 
     private func saveTodos() {
@@ -433,7 +555,8 @@ class TimerManager: ObservableObject {
 
     private func saveSumMinutes() {
         ensureStorageDir()
-        let todayData = TodayData(minutes: sumMinutes, date: Self.effectiveDateString())
+        currentEffectiveDate = Self.effectiveDateString()
+        let todayData = TodayData(minutes: sumMinutes, date: currentEffectiveDate)
         if let data = try? JSONEncoder().encode(todayData) {
             try? data.write(to: Self.todayFile, options: .atomic)
         }
