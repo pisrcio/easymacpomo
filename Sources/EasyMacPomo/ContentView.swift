@@ -1,13 +1,17 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct ContentView: View {
+    private static let todoSpace = "todoList"
+
     @ObservedObject var timerManager: TimerManager
     @State private var todayEditText: String = ""
     @FocusState private var isTodayFocused: Bool
     @State private var newTodoText: String = ""
     @State private var showResetTodayAlert: Bool = false
     @State private var draggingTodoID: UUID?
+    @State private var dragOffset: CGFloat = 0
+    @State private var dropSlot: DropSlot?
+    @State private var todoFrames: [TodoFrame] = []
 
     var body: some View {
         VStack(spacing: 16) {
@@ -57,6 +61,10 @@ struct ContentView: View {
         }
         .padding(20)
         .frame(width: 220)
+        // The menu bar window proposes its minimum height, which squeezes the
+        // todo bands into each other once the list grows. Reporting the ideal
+        // height instead makes the window size to the content.
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func commitSumEdit() {
@@ -135,24 +143,90 @@ struct ContentView: View {
                     }
             }
         }
+        .coordinateSpace(name: Self.todoSpace)
+        .onPreferenceChange(TodoFrameKey.self) { todoFrames = $0 }
+        .overlay(alignment: .top) {
+            if let y = dropIndicatorY() {
+                Capsule()
+                    .fill(Color.accentColor)
+                    .frame(height: 2)
+                    .padding(.horizontal, 7)
+                    .offset(y: y - 1)
+            }
+        }
     }
 
-    /// One tinted band of the list. The band itself is the drop target for the
-    /// end of the section, so items can land in it even when it is empty.
+    /// Publishes a row's (or a band's) live frame so the drag gesture can hit
+    /// test against it — AppKit drag sessions do not survive the menu bar
+    /// window, so reordering is driven by plain gestures instead.
+    private func frameReporter(id: UUID?, section: TodoSection) -> some View {
+        GeometryReader { geo in
+            Color.clear.preference(
+                key: TodoFrameKey.self,
+                value: [TodoFrame(id: id, section: section, rect: geo.frame(in: .named(Self.todoSpace)))])
+        }
+    }
+
+    /// The list is left untouched while a drag is in flight: moving a row
+    /// between bands would rebuild it in another container and cancel the
+    /// gesture mid-drag. The row rides along on an offset, an insertion line
+    /// shows where it will land, and the move is applied on release.
+    private func dragGesture(for todo: TodoItem) -> some Gesture {
+        DragGesture(minimumDistance: 4, coordinateSpace: .named(Self.todoSpace))
+            .onChanged { value in
+                if draggingTodoID != todo.id { draggingTodoID = todo.id }
+                dragOffset = value.translation.height
+                dropSlot = slot(for: todo.id, at: value.location)
+            }
+            .onEnded { _ in
+                if let slot = dropSlot {
+                    timerManager.moveTodo(todo.id, before: slot.beforeID, section: slot.section)
+                }
+                draggingTodoID = nil
+                dragOffset = 0
+                dropSlot = nil
+            }
+    }
+
+    /// Maps the pointer to a slot: the band it is vertically inside (clamped to
+    /// the first and last band so a drag past the ends still lands), then the
+    /// first row in that band whose midpoint is below the pointer.
+    private func slot(for dragged: UUID, at point: CGPoint) -> DropSlot? {
+        let bands = todoFrames.filter { $0.id == nil }.sorted { $0.rect.minY < $1.rect.minY }
+        guard let band = bands.first(where: { point.y < $0.rect.maxY }) ?? bands.last else { return nil }
+
+        let beforeID = todoFrames
+            .filter { $0.id != nil && $0.id != dragged && $0.section == band.section }
+            .sorted { $0.rect.midY < $1.rect.midY }
+            .first { point.y < $0.rect.midY }?
+            .id
+        return DropSlot(section: band.section, beforeID: beforeID)
+    }
+
+    /// Where to draw the insertion line, in the list's coordinate space.
+    private func dropIndicatorY() -> CGFloat? {
+        guard let slot = dropSlot else { return nil }
+        if let beforeID = slot.beforeID {
+            return todoFrames.first { $0.id == beforeID }.map { $0.rect.minY - 2 }
+        }
+        let rows = todoFrames.filter { $0.id != nil && $0.id != draggingTodoID && $0.section == slot.section }
+        if let bottom = rows.map({ $0.rect.maxY }).max() {
+            return bottom + 2
+        }
+        return todoFrames.first { $0.id == nil && $0.section == slot.section }?.rect.midY
+    }
+
+    /// One tinted band of the list. The band reports its own frame too, so a
+    /// drag can land in it even when the section is empty.
     private func todoSection(_ section: TodoSection) -> some View {
         let items = timerManager.todos(in: section)
         return VStack(alignment: .leading, spacing: 4) {
             ForEach(items) { todo in
                 todoRow(todo)
-                    .onDrag {
-                        draggingTodoID = todo.id
-                        return NSItemProvider(object: todo.id.uuidString as NSString)
-                    }
-                    .onDrop(of: [.text], delegate: TodoDropDelegate(
-                        targetID: todo.id,
-                        section: section,
-                        timerManager: timerManager,
-                        draggingTodoID: $draggingTodoID))
+                    .background(frameReporter(id: todo.id, section: section))
+                    .offset(y: draggingTodoID == todo.id ? dragOffset : 0)
+                    .zIndex(draggingTodoID == todo.id ? 1 : 0)
+                    .gesture(dragGesture(for: todo))
             }
 
             if items.isEmpty {
@@ -165,18 +239,14 @@ struct ContentView: View {
         .padding(.vertical, 5)
         .padding(.horizontal, 7)
         .background(section.tint.opacity(0.13), in: RoundedRectangle(cornerRadius: 6))
+        .background(frameReporter(id: nil, section: section))
         .contentShape(Rectangle())
-        .onDrop(of: [.text], delegate: TodoDropDelegate(
-            targetID: nil,
-            section: section,
-            timerManager: timerManager,
-            draggingTodoID: $draggingTodoID))
     }
 
     private func todoRow(_ todo: TodoItem) -> some View {
         HStack(spacing: 6) {
-            Text(todo.text)
-                .font(.system(size: 11, weight: todo.section == .errand ? .regular : .bold))
+            Text("- \(todo.text)")
+                .font(.system(size: 11))
                 .foregroundStyle(todo.isDone ? .secondary : .primary)
                 .strikethrough(todo.isDone)
                 .lineLimit(2)
@@ -295,35 +365,27 @@ struct ContentView: View {
     }
 }
 
-/// Reorders live as the drag passes over a row (or over the band itself, where
-/// `targetID` is nil and the item lands at the end of that section).
-struct TodoDropDelegate: DropDelegate {
-    let targetID: UUID?
+/// Where a dragged row will land: before `beforeID`, or at the end of the
+/// section when it is nil.
+struct DropSlot: Equatable {
     let section: TodoSection
-    let timerManager: TimerManager
-    @Binding var draggingTodoID: UUID?
+    let beforeID: UUID?
+}
 
-    func validateDrop(info: DropInfo) -> Bool {
-        draggingTodoID != nil
+/// Frame of one row (or of a whole band, when `id` is nil) in the todo list's
+/// coordinate space, used to hit test a drag.
+struct TodoFrame: Equatable {
+    let id: UUID?
+    let section: TodoSection
+    let rect: CGRect
+}
+
+struct TodoFrameKey: PreferenceKey {
+    static var defaultValue: [TodoFrame] = []
+
+    static func reduce(value: inout [TodoFrame], nextValue: () -> [TodoFrame]) {
+        value.append(contentsOf: nextValue())
     }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
-    }
-
-    func dropEntered(info: DropInfo) {
-        guard let dragged = draggingTodoID, dragged != targetID else { return }
-        withAnimation(.easeInOut(duration: 0.15)) {
-            timerManager.moveTodo(dragged, before: targetID, section: section)
-        }
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        draggingTodoID = nil
-        return true
-    }
-
-    func dropExited(info: DropInfo) {}
 }
 
 extension TodoSection {

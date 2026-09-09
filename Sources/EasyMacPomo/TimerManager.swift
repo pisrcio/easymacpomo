@@ -260,18 +260,26 @@ class TimerManager: ObservableObject {
     /// when `targetId` is nil. Crossing into another band retags the item.
     func moveTodo(_ id: UUID, before targetId: UUID?, section: TodoSection) {
         guard id != targetId, let from = todos.firstIndex(where: { $0.id == id }) else { return }
-        var item = todos.remove(at: from)
+        var item = todos[from]
         item.section = section
 
+        // Index in the *current* array; corrected below for the removal.
+        var insertAt: Int
         if let targetId = targetId, let to = todos.firstIndex(where: { $0.id == targetId }) {
-            todos.insert(item, at: to)
+            // Strictly before the target: the caller already decided, from the
+            // pointer's position, which side of a row the item belongs on.
+            insertAt = to
         } else if let last = todos.lastIndex(where: { $0.section == section }) {
-            todos.insert(item, at: last + 1)
+            insertAt = last + 1
         } else if let next = todos.firstIndex(where: { $0.section.rank > section.rank }) {
-            todos.insert(item, at: next)
+            insertAt = next
         } else {
-            todos.append(item)
+            insertAt = todos.count
         }
+
+        todos.remove(at: from)
+        if from < insertAt { insertAt -= 1 }
+        todos.insert(item, at: min(max(insertAt, 0), todos.count))
         saveTodos()
     }
 
